@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "inventory-service/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "inventory-service/**"
+
+defaults:
+  run:
+    working-directory: inventory-service
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Unit tests
+        run: dotnet test tests/Inventory.UnitTests --no-build --configuration Release --logger trx --results-directory TestResults
+
+      - name: Integration tests
+        run: dotnet test tests/Inventory.IntegrationTests --no-build --configuration Release --logger trx --results-directory TestResults
+
+      - name: Publish test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: inventory-service/TestResults
+
+  docker-build:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -f src/Inventory.API/Dockerfile -t inventory-api:${{ github.sha }} .
+        working-directory: inventory-service

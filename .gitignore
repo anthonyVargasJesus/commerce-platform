@@ -1,0 +1,19 @@
+## .NET
+bin/
+obj/
+out/
+*.user
+*.suo
+
+## IDE
+.vs/
+.vscode/
+.idea/
+
+## Test results
+TestResults/
+*.trx
+
+## Misc
+*.log
+.env

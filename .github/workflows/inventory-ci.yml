@@ -3,57 +3,75 @@ name: CI
 on:
   push:
     branches: [main]
-    paths:
-      - "inventory-service/**"
   pull_request:
     branches: [main]
-    paths:
-      - "inventory-service/**"
 
 defaults:
   run:
     working-directory: inventory-service
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      inventory: ${{ steps.filter.outputs.inventory }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            inventory:
+              - 'inventory-service/**'
+
   build-and-test:
+    needs: changes
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
+        if: needs.changes.outputs.inventory == 'true'
         uses: actions/checkout@v4
 
       - name: Setup .NET
+        if: needs.changes.outputs.inventory == 'true'
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
 
       - name: Restore
+        if: needs.changes.outputs.inventory == 'true'
         run: dotnet restore
 
       - name: Build
+        if: needs.changes.outputs.inventory == 'true'
         run: dotnet build --no-restore --configuration Release
 
       - name: Unit tests
+        if: needs.changes.outputs.inventory == 'true'
         run: dotnet test tests/Inventory.UnitTests --no-build --configuration Release --logger trx --results-directory TestResults
 
       - name: Integration tests
+        if: needs.changes.outputs.inventory == 'true'
         run: dotnet test tests/Inventory.IntegrationTests --no-build --configuration Release --logger trx --results-directory TestResults
 
       - name: Publish test results
-        if: always()
+        if: always() && needs.changes.outputs.inventory == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: test-results
           path: inventory-service/TestResults
 
   docker-build:
-    needs: build-and-test
+    needs: [changes, build-and-test]
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
+        if: needs.changes.outputs.inventory == 'true'
         uses: actions/checkout@v4
 
       - name: Build Docker image
+        if: needs.changes.outputs.inventory == 'true'
         run: docker build -f src/Inventory.API/Dockerfile -t inventory-api:${{ github.sha }} .
         working-directory: inventory-service

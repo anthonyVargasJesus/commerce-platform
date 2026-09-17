@@ -12,6 +12,9 @@ public class ProductTypeRepository(InventoryDbContext dbContext) : IProductTypeR
     public async Task<IReadOnlyList<ProductType>> GetAllAsync(CancellationToken cancellationToken) =>
         await dbContext.ProductTypes.OrderBy(pt => pt.Name).ToListAsync(cancellationToken);
 
+    public Task<bool> NameExistsAsync(string name, Guid? excludingId, CancellationToken cancellationToken) =>
+        dbContext.ProductTypes.AnyAsync(pt => pt.Name == name && (excludingId == null || pt.Id != excludingId), cancellationToken);
+
     public void Add(ProductType productType) => dbContext.ProductTypes.Add(productType);
 
     public void Remove(ProductType productType) => dbContext.ProductTypes.Remove(productType);

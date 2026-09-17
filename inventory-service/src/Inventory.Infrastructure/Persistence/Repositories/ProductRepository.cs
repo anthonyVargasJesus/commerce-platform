@@ -11,8 +11,8 @@ public class ProductRepository(InventoryDbContext dbContext) : IProductRepositor
 
     public Task<bool> SkuExistsAsync(string sku, CancellationToken cancellationToken)
     {
-        var normalized = Sku.Create(sku).Value;
-        return dbContext.Products.AnyAsync(p => p.Sku.Value == normalized, cancellationToken);
+        var normalized = Sku.Create(sku);
+        return dbContext.Products.AnyAsync(p => p.Sku == normalized, cancellationToken);
     }
 
     public async Task<(IReadOnlyList<Product> Items, int TotalCount)> GetPagedAsync(

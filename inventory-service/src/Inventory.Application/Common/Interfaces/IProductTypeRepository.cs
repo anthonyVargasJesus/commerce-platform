@@ -8,6 +8,8 @@ public interface IProductTypeRepository
 
     Task<IReadOnlyList<ProductType>> GetAllAsync(CancellationToken cancellationToken);
 
+    Task<bool> NameExistsAsync(string name, Guid? excludingId, CancellationToken cancellationToken);
+
     void Add(ProductType productType);
 
     void Remove(ProductType productType);

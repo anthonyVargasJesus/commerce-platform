@@ -34,4 +34,29 @@ public class UpdateCategoryCommandHandlerTests
         await Should.ThrowAsync<NotFoundException>(
             () => CreateHandler().Handle(new UpdateCategoryCommand(Guid.NewGuid(), "Name", null), CancellationToken.None));
     }
+
+    [Fact]
+    public async Task Handle_WhenNameBelongsToAnotherCategory_ShouldThrowConflictException()
+    {
+        var category = Category.Create("Electronics");
+        _repository.Setup(r => r.GetByIdAsync(category.Id, It.IsAny<CancellationToken>())).ReturnsAsync(category);
+        _repository.Setup(r => r.NameExistsAsync("Furniture", category.Id, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+
+        await Should.ThrowAsync<ConflictException>(
+            () => CreateHandler().Handle(new UpdateCategoryCommand(category.Id, "Furniture", null), CancellationToken.None));
+
+        _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WhenNameIsUnchanged_ShouldNotQueryNameExistence()
+    {
+        var category = Category.Create("Electronics");
+        _repository.Setup(r => r.GetByIdAsync(category.Id, It.IsAny<CancellationToken>())).ReturnsAsync(category);
+
+        await CreateHandler().Handle(new UpdateCategoryCommand(category.Id, "Electronics", "Updated description"), CancellationToken.None);
+
+        _repository.Verify(r => r.NameExistsAsync(It.IsAny<string>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
 }

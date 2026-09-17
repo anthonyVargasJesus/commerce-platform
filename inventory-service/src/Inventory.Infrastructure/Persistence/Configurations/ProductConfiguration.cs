@@ -20,7 +20,9 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
             .HasMaxLength(32)
             .IsRequired();
 
-        builder.HasIndex(p => p.Sku).IsUnique();
+        builder.HasIndex(p => p.Sku)
+            .IsUnique()
+            .HasFilter("is_active = true");
 
         builder.Property(p => p.Name)
             .HasColumnName("name")
@@ -62,6 +64,8 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Property(p => p.LastModifiedAt).HasColumnName("last_modified_at");
 
         builder.Property(p => p.LastModifiedBy).HasColumnName("last_modified_by").HasMaxLength(100);
+
+        builder.HasQueryFilter(p => p.IsActive);
 
         builder.Ignore(p => p.DomainEvents);
     }

@@ -8,6 +8,8 @@ public interface ICategoryRepository
 
     Task<IReadOnlyList<Category>> GetAllAsync(CancellationToken cancellationToken);
 
+    Task<bool> NameExistsAsync(string name, Guid? excludingId, CancellationToken cancellationToken);
+
     void Add(Category category);
 
     void Remove(Category category);

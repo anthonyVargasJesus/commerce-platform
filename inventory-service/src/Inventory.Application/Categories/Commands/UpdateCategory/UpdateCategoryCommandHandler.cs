@@ -12,7 +12,15 @@ public sealed class UpdateCategoryCommandHandler(ICategoryRepository repository,
         var category = await repository.GetByIdAsync(request.Id, cancellationToken)
             ?? throw new NotFoundException(nameof(Domain.Categories.Category), request.Id);
 
-        category.UpdateDetails(request.Name, request.Description);
+        var name = request.Name.Trim();
+
+        if (!string.Equals(name, category.Name, StringComparison.Ordinal)
+            && await repository.NameExistsAsync(name, excludingId: request.Id, cancellationToken))
+        {
+            throw new ConflictException($"A category with name '{name}' already exists.");
+        }
+
+        category.UpdateDetails(name, request.Description);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }

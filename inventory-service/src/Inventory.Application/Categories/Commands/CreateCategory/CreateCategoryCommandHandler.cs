@@ -1,3 +1,4 @@
+using Inventory.Application.Common.Exceptions;
 using Inventory.Application.Common.Interfaces;
 using Inventory.Domain.Categories;
 using MediatR;
@@ -9,7 +10,14 @@ public sealed class CreateCategoryCommandHandler(ICategoryRepository repository,
 {
     public async Task<CreatedCategoryDto> Handle(CreateCategoryCommand request, CancellationToken cancellationToken)
     {
-        var category = Category.Create(request.Name, request.Description);
+        var name = request.Name.Trim();
+
+        if (await repository.NameExistsAsync(name, excludingId: null, cancellationToken))
+        {
+            throw new ConflictException($"A category with name '{name}' already exists.");
+        }
+
+        var category = Category.Create(name, request.Description);
 
         repository.Add(category);
 

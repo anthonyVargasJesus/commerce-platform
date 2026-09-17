@@ -12,7 +12,15 @@ public sealed class UpdateProductTypeCommandHandler(IProductTypeRepository repos
         var productType = await repository.GetByIdAsync(request.Id, cancellationToken)
             ?? throw new NotFoundException(nameof(Domain.ProductTypes.ProductType), request.Id);
 
-        productType.UpdateDetails(request.Name, request.Description);
+        var name = request.Name.Trim();
+
+        if (!string.Equals(name, productType.Name, StringComparison.Ordinal)
+            && await repository.NameExistsAsync(name, excludingId: request.Id, cancellationToken))
+        {
+            throw new ConflictException($"A product type with name '{name}' already exists.");
+        }
+
+        productType.UpdateDetails(name, request.Description);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }

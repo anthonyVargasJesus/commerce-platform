@@ -34,4 +34,29 @@ public class UpdateProductTypeCommandHandlerTests
         await Should.ThrowAsync<NotFoundException>(
             () => CreateHandler().Handle(new UpdateProductTypeCommand(Guid.NewGuid(), "Name", null), CancellationToken.None));
     }
+
+    [Fact]
+    public async Task Handle_WhenNameBelongsToAnotherProductType_ShouldThrowConflictException()
+    {
+        var productType = ProductType.Create("Hardware");
+        _repository.Setup(r => r.GetByIdAsync(productType.Id, It.IsAny<CancellationToken>())).ReturnsAsync(productType);
+        _repository.Setup(r => r.NameExistsAsync("Software", productType.Id, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+
+        await Should.ThrowAsync<ConflictException>(
+            () => CreateHandler().Handle(new UpdateProductTypeCommand(productType.Id, "Software", null), CancellationToken.None));
+
+        _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WhenNameIsUnchanged_ShouldNotQueryNameExistence()
+    {
+        var productType = ProductType.Create("Hardware");
+        _repository.Setup(r => r.GetByIdAsync(productType.Id, It.IsAny<CancellationToken>())).ReturnsAsync(productType);
+
+        await CreateHandler().Handle(new UpdateProductTypeCommand(productType.Id, "Hardware", "Updated description"), CancellationToken.None);
+
+        _repository.Verify(r => r.NameExistsAsync(It.IsAny<string>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
 }

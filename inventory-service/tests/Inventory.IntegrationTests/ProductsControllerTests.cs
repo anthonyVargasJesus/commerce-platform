@@ -14,7 +14,7 @@ public class ProductsControllerTests(InventoryApiFactory factory) : IClassFixtur
     [Fact]
     public async Task CreateAndGetProduct_ShouldRoundTrip()
     {
-        var command = new CreateProductCommand($"SKU-{Guid.NewGuid():N}", "Integration Widget", "desc", 12.5m, 20, 5);
+        var command = new CreateProductCommand($"SKU-{Guid.NewGuid().ToString("N")[..8]}", "Integration Widget", "desc", 12.5m, 20, 5);
 
         var createResponse = await _client.PostAsJsonAsync("/api/v1/products", command);
         createResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
@@ -40,7 +40,7 @@ public class ProductsControllerTests(InventoryApiFactory factory) : IClassFixtur
     [Fact]
     public async Task AdjustStock_BelowZero_ShouldReturnUnprocessableEntity()
     {
-        var command = new CreateProductCommand($"SKU-{Guid.NewGuid():N}", "Low Stock Widget", null, 5m, 1, 0);
+        var command = new CreateProductCommand($"SKU-{Guid.NewGuid().ToString("N")[..8]}", "Low Stock Widget", null, 5m, 1, 0);
         var createResponse = await _client.PostAsJsonAsync("/api/v1/products", command);
         var created = await createResponse.Content.ReadFromJsonAsync<ProductDto>();
 

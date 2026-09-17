@@ -1,7 +1,6 @@
 using Inventory.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
 
@@ -17,14 +16,6 @@ public class InventoryApiFactory : WebApplicationFactory<Program>, IAsyncLifetim
 
     protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
     {
-        builder.ConfigureAppConfiguration((_, configuration) =>
-        {
-            configuration.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["ConnectionStrings:InventoryDb"] = _dbContainer.GetConnectionString(),
-            });
-        });
-
         builder.ConfigureServices(services =>
         {
             using var scope = services.BuildServiceProvider().CreateScope();
@@ -33,7 +24,16 @@ public class InventoryApiFactory : WebApplicationFactory<Program>, IAsyncLifetim
         });
     }
 
-    public async Task InitializeAsync() => await _dbContainer.StartAsync();
+    public async Task InitializeAsync()
+    {
+        await _dbContainer.StartAsync();
+
+        // Program.cs reads ConnectionStrings:InventoryDb eagerly while building the host, before
+        // WebApplicationFactory applies ConfigureAppConfiguration overrides — so an in-memory config
+        // override arrives too late. Environment variables are read earlier, at builder-creation time,
+        // so setting one here (before the host is built) is what actually takes effect.
+        Environment.SetEnvironmentVariable("ConnectionStrings__InventoryDb", _dbContainer.GetConnectionString());
+    }
 
     async Task IAsyncLifetime.DisposeAsync()
     {

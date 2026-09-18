@@ -9,6 +9,7 @@ public interface INotificationRepository
     Task<(IReadOnlyList<Notification> Items, int TotalCount)> GetPagedAsync(
         Guid? customerId,
         Guid? orderId,
+        Guid? productId,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken);

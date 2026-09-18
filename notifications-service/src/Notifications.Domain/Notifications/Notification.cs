@@ -5,9 +5,13 @@ namespace Notifications.Domain.Notifications;
 
 public sealed class Notification : BaseAuditableEntity
 {
-    public Guid OrderId { get; private set; }
+    // Order notifications reference an order and a customer; stock alerts reference a product.
+    // The other side of each pair stays null.
+    public Guid? OrderId { get; private set; }
 
-    public Guid CustomerId { get; private set; }
+    public Guid? CustomerId { get; private set; }
+
+    public Guid? ProductId { get; private set; }
 
     public NotificationType Type { get; private set; }
 
@@ -29,10 +33,7 @@ public sealed class Notification : BaseAuditableEntity
             throw new DomainException("Notification customer id cannot be empty.");
         }
 
-        if (string.IsNullOrWhiteSpace(message))
-        {
-            throw new DomainException("Notification message cannot be empty.");
-        }
+        EnsureMessage(message);
 
         return new Notification
         {
@@ -41,5 +42,30 @@ public sealed class Notification : BaseAuditableEntity
             Type = type,
             Message = message.Trim(),
         };
+    }
+
+    public static Notification CreateStockAlert(Guid productId, string message)
+    {
+        if (productId == Guid.Empty)
+        {
+            throw new DomainException("Notification product id cannot be empty.");
+        }
+
+        EnsureMessage(message);
+
+        return new Notification
+        {
+            ProductId = productId,
+            Type = NotificationType.LowStock,
+            Message = message.Trim(),
+        };
+    }
+
+    private static void EnsureMessage(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            throw new DomainException("Notification message cannot be empty.");
+        }
     }
 }

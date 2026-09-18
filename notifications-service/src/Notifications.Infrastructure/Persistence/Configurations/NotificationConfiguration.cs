@@ -12,9 +12,11 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
 
         builder.HasKey(n => n.Id);
 
-        builder.Property(n => n.OrderId).HasColumnName("order_id").IsRequired();
+        builder.Property(n => n.OrderId).HasColumnName("order_id");
 
-        builder.Property(n => n.CustomerId).HasColumnName("customer_id").IsRequired();
+        builder.Property(n => n.CustomerId).HasColumnName("customer_id");
+
+        builder.Property(n => n.ProductId).HasColumnName("product_id");
 
         builder.Property(n => n.Type)
             .HasColumnName("type")
@@ -29,6 +31,7 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
 
         builder.HasIndex(n => n.OrderId);
         builder.HasIndex(n => n.CustomerId);
+        builder.HasIndex(n => n.ProductId);
 
         builder.Property(n => n.CreatedAt).HasColumnName("created_at");
 

@@ -9,5 +9,7 @@ public sealed class AdjustStockCommandValidator : AbstractValidator<AdjustStockC
         RuleFor(x => x.ProductId).NotEmpty();
 
         RuleFor(x => x.Delta).NotEqual(0);
+
+        RuleFor(x => x.IdempotencyKey).MaximumLength(200);
     }
 }

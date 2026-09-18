@@ -39,6 +39,10 @@ Las dependencias fluyen hacia el dominio: `API -> Application/Infrastructure -> 
 - Docker (para PostgreSQL local y Testcontainers)
 - RabbitMQ corriendo (broker compartido de la plataforma): `docker compose up -d rabbitmq` desde `orders-service/`
 
+## Idempotencia del ajuste de stock
+
+`POST /api/v1/products/{id}/adjust-stock` acepta la cabecera opcional `Idempotency-Key`. Si llega una clave ya usada, Inventory responde con el estado actual del producto **sin aplicar el cambio otra vez**; así un cliente puede reintentar sin miedo a descontar el stock dos veces (Orders lo hace ante fallos transitorios). La clave se guarda en `processed_requests` (clave única) en la misma transacción que el cambio, de modo que de dos peticiones concurrentes con la misma clave solo una se confirma. Una petición rechazada (por ejemplo por stock insuficiente) no consume su clave. Sin cabecera, el endpoint funciona como antes.
+
 ## Ejecutar localmente
 
 ```bash

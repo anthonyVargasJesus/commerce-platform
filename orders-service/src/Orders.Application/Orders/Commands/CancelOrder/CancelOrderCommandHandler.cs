@@ -27,11 +27,13 @@ public sealed class CancelOrderCommandHandler(
 
         if (wasConfirmed)
         {
+            var attemptId = Guid.NewGuid();
+
             // Compensating call: stock was decremented at ConfirmOrder time, so it must be
             // given back now. Best-effort synchronous call — no saga/outbox exists yet.
             foreach (var item in order.Items)
             {
-                await inventoryClient.AdjustStockAsync(item.ProductId, item.Quantity, cancellationToken);
+                await inventoryClient.AdjustStockAsync(item.ProductId, item.Quantity, $"{attemptId}:{item.ProductId}:restock", cancellationToken);
             }
         }
 

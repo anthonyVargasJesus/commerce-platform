@@ -18,6 +18,25 @@ public class CancelOrderCommandHandlerTests
     private CancelOrderCommandHandler CreateHandler() => new(_repository.Object, _accessPolicy.Object, _inventoryClient.Object, _unitOfWork.Object);
 
     [Fact]
+    public async Task Handle_WhenRestocking_ShouldSendADistinctKeyPerItem()
+    {
+        var order = Order.Create(Guid.NewGuid(), [OrderItem.Create(Guid.NewGuid(), "A", "A", 10m, 1), OrderItem.Create(Guid.NewGuid(), "B", "B", 10m, 2)]);
+        order.Confirm();
+        _repository.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>())).ReturnsAsync(order);
+        var keys = new List<string>();
+        _inventoryClient
+            .Setup(c => c.AdjustStockAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<Guid, int, string, CancellationToken>((_, _, key, _) => keys.Add(key))
+            .ReturnsAsync(InventoryAdjustmentResult.Success);
+
+        await CreateHandler().Handle(new CancelOrderCommand(order.Id), CancellationToken.None);
+
+        keys.Count.ShouldBe(2);
+        keys.ShouldAllBe(key => !string.IsNullOrWhiteSpace(key));
+        keys.Distinct().Count().ShouldBe(2);
+    }
+
+    [Fact]
     public async Task Handle_WhenTheOrderIsNotVisibleToTheUser_ShouldNotCancelOrRestock()
     {
         var order = Order.Create(Guid.NewGuid(), [OrderItem.Create(Guid.NewGuid(), "SKU", "Widget", 10m, 3)]);
@@ -30,7 +49,7 @@ public class CancelOrderCommandHandlerTests
         await Should.ThrowAsync<NotFoundException>(() => CreateHandler().Handle(new CancelOrderCommand(order.Id), CancellationToken.None));
 
         order.Status.ShouldBe(OrderStatus.Confirmed);
-        _inventoryClient.Verify(c => c.AdjustStockAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        _inventoryClient.Verify(c => c.AdjustStockAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -44,7 +63,7 @@ public class CancelOrderCommandHandlerTests
         var result = await CreateHandler().Handle(new CancelOrderCommand(order.Id), CancellationToken.None);
 
         result.Status.ShouldBe(OrderStatus.Cancelled);
-        _inventoryClient.Verify(c => c.AdjustStockAsync(productId, 3, It.IsAny<CancellationToken>()), Times.Once);
+        _inventoryClient.Verify(c => c.AdjustStockAsync(productId, 3, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -56,7 +75,7 @@ public class CancelOrderCommandHandlerTests
         var result = await CreateHandler().Handle(new CancelOrderCommand(order.Id), CancellationToken.None);
 
         result.Status.ShouldBe(OrderStatus.Cancelled);
-        _inventoryClient.Verify(c => c.AdjustStockAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        _inventoryClient.Verify(c => c.AdjustStockAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

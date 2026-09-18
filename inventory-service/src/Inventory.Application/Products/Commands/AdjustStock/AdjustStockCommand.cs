@@ -3,4 +3,4 @@ using MediatR;
 
 namespace Inventory.Application.Products.Commands.AdjustStock;
 
-public sealed record AdjustStockCommand(Guid ProductId, int Delta) : IRequest<ProductDto>;
+public sealed record AdjustStockCommand(Guid ProductId, int Delta, string? IdempotencyKey = null) : IRequest<ProductDto>;

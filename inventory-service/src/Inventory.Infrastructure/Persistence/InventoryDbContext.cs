@@ -16,6 +16,8 @@ public class InventoryDbContext(DbContextOptions<InventoryDbContext> options) : 
 
     public DbSet<ProductType> ProductTypes => Set<ProductType>();
 
+    public DbSet<ProcessedRequest> ProcessedRequests => Set<ProcessedRequest>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("inventory");

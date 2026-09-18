@@ -26,13 +26,17 @@ public class InventoryServiceClient(HttpClient httpClient) : IInventoryServiceCl
         return new ProductSnapshot(product.Id, product.Sku, product.Name, product.Price, product.IsActive);
     }
 
-    public async Task<InventoryAdjustmentResult> AdjustStockAsync(Guid productId, int delta, CancellationToken cancellationToken)
+    public async Task<InventoryAdjustmentResult> AdjustStockAsync(Guid productId, int delta, string idempotencyKey, CancellationToken cancellationToken)
     {
-        var response = await httpClient.PostAsJsonAsync(
-            $"api/v1/products/{productId}/adjust-stock",
-            new InventoryAdjustStockRequest(delta),
-            JsonOptions,
-            cancellationToken);
+        // The resilience pipeline may resend this POST after a transient failure. The key is part of the request,
+        // so every resend carries the same one and Inventory applies the change only once.
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"api/v1/products/{productId}/adjust-stock")
+        {
+            Content = JsonContent.Create(new InventoryAdjustStockRequest(delta), options: JsonOptions),
+        };
+        request.Headers.Add("Idempotency-Key", idempotencyKey);
+
+        var response = await httpClient.SendAsync(request, cancellationToken);
 
         return response.StatusCode switch
         {

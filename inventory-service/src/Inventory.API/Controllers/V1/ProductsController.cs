@@ -68,9 +68,13 @@ public class ProductsController(ISender sender) : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<ProductDto>> AdjustStock(Guid id, AdjustStockRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<ProductDto>> AdjustStock(
+        Guid id,
+        AdjustStockRequest request,
+        [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey,
+        CancellationToken cancellationToken)
     {
-        var result = await sender.Send(new AdjustStockCommand(id, request.Delta!.Value), cancellationToken);
+        var result = await sender.Send(new AdjustStockCommand(id, request.Delta!.Value, idempotencyKey), cancellationToken);
         return Ok(result);
     }
 

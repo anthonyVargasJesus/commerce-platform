@@ -30,13 +30,56 @@ public class ConfirmOrderCommandHandlerTests
         var order = CreateOrderWithItems((productId, 2));
         _repository.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>())).ReturnsAsync(order);
         _inventoryClient
-            .Setup(c => c.AdjustStockAsync(productId, -2, It.IsAny<CancellationToken>()))
+            .Setup(c => c.AdjustStockAsync(productId, -2, It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(InventoryAdjustmentResult.Success);
 
         var result = await CreateHandler().Handle(new ConfirmOrderCommand(order.Id), CancellationToken.None);
 
         result.Status.ShouldBe(OrderStatus.Confirmed);
         _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_ShouldSendADistinctIdempotencyKeyPerItemAndPerAttempt()
+    {
+        var keys = new List<string>();
+        _inventoryClient
+            .Setup(c => c.AdjustStockAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<Guid, int, string, CancellationToken>((_, _, key, _) => keys.Add(key))
+            .ReturnsAsync(InventoryAdjustmentResult.Success);
+
+        foreach (var _ in new[] { 1, 2 })
+        {
+            var order = CreateOrderWithItems((Guid.NewGuid(), 1), (Guid.NewGuid(), 1));
+            _repository.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>())).ReturnsAsync(order);
+            await CreateHandler().Handle(new ConfirmOrderCommand(order.Id), CancellationToken.None);
+        }
+
+        keys.Count.ShouldBe(4);
+        keys.ShouldAllBe(key => !string.IsNullOrWhiteSpace(key));
+        keys.Distinct().Count().ShouldBe(4, "each reservation of each attempt has its own key");
+    }
+
+    [Fact]
+    public async Task Handle_WhenCompensating_ShouldUseADifferentKeyThanTheReservation()
+    {
+        var productA = Guid.NewGuid();
+        var productB = Guid.NewGuid();
+        var order = CreateOrderWithItems((productA, 2), (productB, 5));
+        _repository.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>())).ReturnsAsync(order);
+        var keysForA = new List<string>();
+        _inventoryClient
+            .Setup(c => c.AdjustStockAsync(productA, It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<Guid, int, string, CancellationToken>((_, _, key, _) => keysForA.Add(key))
+            .ReturnsAsync(InventoryAdjustmentResult.Success);
+        _inventoryClient
+            .Setup(c => c.AdjustStockAsync(productB, It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(InventoryAdjustmentResult.InsufficientStock);
+
+        await Should.ThrowAsync<ConflictException>(() => CreateHandler().Handle(new ConfirmOrderCommand(order.Id), CancellationToken.None));
+
+        keysForA.Count.ShouldBe(2);
+        keysForA[0].ShouldNotBe(keysForA[1], "the release must not be swallowed as a repeat of the reservation");
     }
 
     [Fact]
@@ -47,16 +90,16 @@ public class ConfirmOrderCommandHandlerTests
         var order = CreateOrderWithItems((productA, 2), (productB, 5));
         _repository.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>())).ReturnsAsync(order);
         _inventoryClient
-            .Setup(c => c.AdjustStockAsync(productA, -2, It.IsAny<CancellationToken>()))
+            .Setup(c => c.AdjustStockAsync(productA, -2, It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(InventoryAdjustmentResult.Success);
         _inventoryClient
-            .Setup(c => c.AdjustStockAsync(productB, -5, It.IsAny<CancellationToken>()))
+            .Setup(c => c.AdjustStockAsync(productB, -5, It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(InventoryAdjustmentResult.InsufficientStock);
 
         await Should.ThrowAsync<ConflictException>(() => CreateHandler().Handle(new ConfirmOrderCommand(order.Id), CancellationToken.None));
 
         // Compensation: productA's stock must be given back since it was already decremented.
-        _inventoryClient.Verify(c => c.AdjustStockAsync(productA, 2, It.IsAny<CancellationToken>()), Times.Once);
+        _inventoryClient.Verify(c => c.AdjustStockAsync(productA, 2, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
         order.Status.ShouldBe(OrderStatus.Pending);
         _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -72,7 +115,7 @@ public class ConfirmOrderCommandHandlerTests
 
         await Should.ThrowAsync<NotFoundException>(() => CreateHandler().Handle(new ConfirmOrderCommand(order.Id), CancellationToken.None));
 
-        _inventoryClient.Verify(c => c.AdjustStockAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        _inventoryClient.Verify(c => c.AdjustStockAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
         order.Status.ShouldBe(OrderStatus.Pending);
     }
 

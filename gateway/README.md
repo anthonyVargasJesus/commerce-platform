@@ -18,6 +18,11 @@ El gateway valida el JWT de Keycloak (firma, emisor, audiencia y expiración) y 
 
 Configuración (`Authentication` en `appsettings.json`): `Authority` es el emisor que Keycloak escribe en los tokens (`http://localhost:8180/realms/commerce`), `Audience` es `commerce-platform`, y `MetadataAddress` (opcional) es la dirección desde donde se descargan las claves; en Docker apunta a `http://keycloak:8080/...` porque el emisor público y la dirección interna no coinciden.
 
+## CORS y límite de peticiones
+
+- **CORS**: `Cors:AllowedOrigins` (en `appsettings.json` los orígenes típicos de un frontend en desarrollo; en producción se sobrescribe con `Cors__AllowedOrigins__0`, ...). El *preflight* de un origen permitido se responde con 204 sin exigir token; los orígenes desconocidos no reciben cabeceras CORS.
+- **Límite de peticiones**: política `per-user` de ventana deslizante (`RateLimiting:PermitLimit`, 600, y `WindowSeconds`, 60). La clave es el `sub` del token, o la IP si no hay token, así que un cliente ruidoso no afecta a los demás. Al superarlo responde `429` con `Retry-After`. Los valores se leen en cada petición. `/health/live` no está limitado.
+
 ## Ejecutar
 
 ```bash

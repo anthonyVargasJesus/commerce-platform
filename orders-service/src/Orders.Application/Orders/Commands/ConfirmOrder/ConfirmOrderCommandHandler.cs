@@ -39,11 +39,14 @@ public sealed class ConfirmOrderCommandHandler(
     /// </summary>
     private async Task ReserveStockOrThrowAsync(Order order, CancellationToken cancellationToken)
     {
+        // Idempotency keys are scoped to this attempt: retries of one call to Inventory reuse the key, but a later
+        // confirmation of the same order (after this one failed and was compensated) must not be mistaken for a repeat.
+        var attemptId = Guid.NewGuid();
         var reserved = new List<OrderItem>();
 
         foreach (var item in order.Items)
         {
-            var result = await inventoryClient.AdjustStockAsync(item.ProductId, -item.Quantity, cancellationToken);
+            var result = await inventoryClient.AdjustStockAsync(item.ProductId, -item.Quantity, $"{attemptId}:{item.ProductId}:reserve", cancellationToken);
 
             if (result == InventoryAdjustmentResult.Success)
             {
@@ -53,7 +56,7 @@ public sealed class ConfirmOrderCommandHandler(
 
             foreach (var toCompensate in reserved)
             {
-                await inventoryClient.AdjustStockAsync(toCompensate.ProductId, toCompensate.Quantity, cancellationToken);
+                await inventoryClient.AdjustStockAsync(toCompensate.ProductId, toCompensate.Quantity, $"{attemptId}:{toCompensate.ProductId}:release", cancellationToken);
             }
 
             throw result switch

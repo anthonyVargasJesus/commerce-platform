@@ -1,0 +1,100 @@
+using System.Net;
+using System.Net.Http.Json;
+using Commerce.Contracts.Orders;
+using MassTransit;
+using Microsoft.Extensions.DependencyInjection;
+using Notifications.Application.Notifications.Dtos;
+using Notifications.Domain.Notifications;
+using Shouldly;
+
+namespace Notifications.IntegrationTests;
+
+public class OrderEventsConsumptionTests(NotificationsApiFactory factory) : IClassFixture<NotificationsApiFactory>
+{
+    private sealed record NotificationsPage(IReadOnlyList<NotificationDto> Items);
+
+    private readonly HttpClient _client = factory.CreateClient();
+
+    private async Task PublishAsync<T>(T message, Guid? messageId = null)
+        where T : class
+    {
+        using var scope = factory.Services.CreateScope();
+        var publisher = scope.ServiceProvider.GetRequiredService<IPublishEndpoint>();
+        await publisher.Publish(message, context =>
+        {
+            if (messageId is not null)
+            {
+                context.MessageId = messageId;
+            }
+        });
+    }
+
+    private async Task<IReadOnlyList<NotificationDto>> WaitForNotificationsAsync(Guid orderId, int expectedCount)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        IReadOnlyList<NotificationDto> items = [];
+
+        while (DateTime.UtcNow < deadline)
+        {
+            var page = await _client.GetFromJsonAsync<NotificationsPage>($"/api/v1/notifications?orderId={orderId}");
+            items = page!.Items;
+            if (items.Count >= expectedCount)
+            {
+                break;
+            }
+
+            await Task.Delay(250);
+        }
+
+        return items;
+    }
+
+    [Fact]
+    public async Task OrderConfirmed_WhenPublished_ShouldCreateAConfirmationNotification()
+    {
+        var orderId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+
+        await PublishAsync(new OrderConfirmed(orderId, customerId, 120m, DateTimeOffset.UtcNow));
+
+        var items = await WaitForNotificationsAsync(orderId, 1);
+
+        var notification = items.ShouldHaveSingleItem();
+        notification.Type.ShouldBe(NotificationType.OrderConfirmed);
+        notification.CustomerId.ShouldBe(customerId);
+        notification.Message.ShouldContain(orderId.ToString());
+    }
+
+    [Fact]
+    public async Task SameMessageDeliveredTwice_ShouldCreateOnlyOneNotification()
+    {
+        var orderId = Guid.NewGuid();
+        var messageId = Guid.NewGuid();
+        var message = new OrderShipped(orderId, Guid.NewGuid(), 10m, DateTimeOffset.UtcNow);
+
+        await PublishAsync(message, messageId);
+        await PublishAsync(message, messageId);
+
+        await WaitForNotificationsAsync(orderId, 1);
+        await Task.Delay(TimeSpan.FromSeconds(3));
+        var items = await WaitForNotificationsAsync(orderId, 1);
+
+        items.ShouldHaveSingleItem().Type.ShouldBe(NotificationType.OrderShipped);
+    }
+
+    [Fact]
+    public async Task GetById_WhenNotificationDoesNotExist_ShouldReturnNotFound()
+    {
+        var response = await _client.GetAsync($"/api/v1/notifications/{Guid.NewGuid()}");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetList_WithInvalidPageSize_ShouldReturnBadRequest()
+    {
+        var response = await _client.GetAsync("/api/v1/notifications?pageSize=0");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+}

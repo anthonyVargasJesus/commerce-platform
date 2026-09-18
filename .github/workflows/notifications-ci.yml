@@ -1,0 +1,77 @@
+name: Notifications CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+defaults:
+  run:
+    working-directory: notifications-service
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      notifications: ${{ steps.filter.outputs.notifications }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            notifications:
+              - 'notifications-service/**'
+
+  notifications-build-and-test:
+    needs: changes
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        if: needs.changes.outputs.notifications == 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        if: needs.changes.outputs.notifications == 'true'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        if: needs.changes.outputs.notifications == 'true'
+        run: dotnet restore
+
+      - name: Build
+        if: needs.changes.outputs.notifications == 'true'
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Unit tests
+        if: needs.changes.outputs.notifications == 'true'
+        run: dotnet test tests/Notifications.UnitTests --no-build --configuration Release --logger trx --results-directory TestResults
+
+      - name: Integration tests
+        if: needs.changes.outputs.notifications == 'true'
+        run: dotnet test tests/Notifications.IntegrationTests --no-build --configuration Release --logger trx --results-directory TestResults
+
+      - name: Publish test results
+        if: always() && needs.changes.outputs.notifications == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: notifications-test-results
+          path: notifications-service/TestResults
+
+  notifications-docker-build:
+    needs: [changes, notifications-build-and-test]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        if: needs.changes.outputs.notifications == 'true'
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        if: needs.changes.outputs.notifications == 'true'
+        run: docker build -f src/Notifications.API/Dockerfile -t notifications-api:${{ github.sha }} .
+        working-directory: notifications-service

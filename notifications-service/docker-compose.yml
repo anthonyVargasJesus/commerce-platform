@@ -1,0 +1,34 @@
+services:
+  notifications-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: notifications
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - notifications-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d notifications"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  notifications-api:
+    build:
+      context: .
+      dockerfile: src/Notifications.API/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__NotificationsDb: "Host=notifications-db;Port=5432;Database=notifications;Username=postgres;Password=postgres"
+      # RabbitMQ is shared by the whole platform and is started from orders-service/docker-compose.yml.
+      RabbitMq__Host: "host.docker.internal"
+    ports:
+      - "8082:8080"
+    depends_on:
+      notifications-db:
+        condition: service_healthy
+
+volumes:
+  notifications-db-data:

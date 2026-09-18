@@ -6,11 +6,18 @@ using MediatR;
 
 namespace Orders.Application.Orders.Commands.CreateOrder;
 
-public sealed class CreateOrderCommandHandler(IOrderRepository repository, IInventoryServiceClient inventoryClient, IUnitOfWork unitOfWork)
+public sealed class CreateOrderCommandHandler(
+    IOrderRepository repository,
+    ICustomerRepository customerRepository,
+    IInventoryServiceClient inventoryClient,
+    IUnitOfWork unitOfWork)
     : IRequestHandler<CreateOrderCommand, OrderDto>
 {
     public async Task<OrderDto> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
     {
+        _ = await customerRepository.GetByIdAsync(request.CustomerId, cancellationToken)
+            ?? throw new NotFoundException(nameof(Domain.Customers.Customer), request.CustomerId);
+
         var items = new List<OrderItem>();
 
         foreach (var itemRequest in request.Items)

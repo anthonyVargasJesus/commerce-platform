@@ -26,5 +26,8 @@ public class OrderRepository(OrdersDbContext dbContext) : IOrderRepository
         return (items, totalCount);
     }
 
+    public Task<bool> ExistsForCustomerAsync(Guid customerId, CancellationToken cancellationToken) =>
+        dbContext.Orders.AnyAsync(o => o.CustomerId == customerId, cancellationToken);
+
     public void Add(Order order) => dbContext.Orders.Add(order);
 }

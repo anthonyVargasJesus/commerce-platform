@@ -11,5 +11,7 @@ public interface IOrderRepository
         int pageSize,
         CancellationToken cancellationToken);
 
+    Task<bool> ExistsForCustomerAsync(Guid customerId, CancellationToken cancellationToken);
+
     void Add(Order order);
 }

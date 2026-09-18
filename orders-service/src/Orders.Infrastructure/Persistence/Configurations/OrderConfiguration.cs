@@ -1,3 +1,4 @@
+using Orders.Domain.Customers;
 using Orders.Domain.Orders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -13,6 +14,11 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.HasKey(o => o.Id);
 
         builder.Property(o => o.CustomerId).IsRequired();
+
+        builder.HasOne<Customer>()
+            .WithMany()
+            .HasForeignKey(o => o.CustomerId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.Property(o => o.Status)
             .HasConversion<string>()

@@ -38,16 +38,24 @@ Pending --Confirm--> Confirmed --Ship--> Shipped --Deliver--> Delivered
 - **`CancelOrder`**: si el pedido estaba `Confirmed`, se devuelve el stock a Inventory (delta positivo) como compensación.
 - **`ShipOrder`/`DeliverOrder`**: solo cambian el estado internamente, sin tocar Inventory.
 
-**Nota de diseño**: esta compensación es una llamada síncrona directa — no existe todavía un mecanismo de saga/outbox. Es una simplificación consciente (documentada), no un descuido.
+**Nota de diseño**: esta compensación es una llamada síncrona directa — no hay saga. Es una simplificación consciente (documentada), no un descuido. (El outbox descrito abajo cubre la publicación de eventos hacia otros servicios, no esta compensación.)
 
 ## Resiliencia en la comunicación con Inventory
 
 El `HttpClient` hacia `inventory-service` usa `Microsoft.Extensions.Http.Resilience` (`AddStandardResilienceHandler()`), que aplica reintentos, circuit breaker y timeouts por defecto — si Inventory está caído momentáneamente, Orders no falla de una, reintenta con backoff.
 
+## Eventos de integración (RabbitMQ + MassTransit outbox)
+
+Los eventos de dominio del agregado `Order` (created/confirmed/shipped/delivered/cancelled) se publican a RabbitMQ como eventos de integración (`Commerce.Contracts.Orders.*`). `DomainEventsOutboxInterceptor` los toma en el `SaveChanges` y los guarda en la tabla `orders.OutboxMessage` **dentro de la misma transacción** que el cambio de la orden; el bus outbox de MassTransit los entrega después a RabbitMQ. Así un evento nunca se pierde si el broker está caído, ni se publica si la transacción falla.
+
+- MassTransit se fija en la v8 (Apache 2.0): desde la v9 es de licencia comercial.
+- Los contratos se identifican por nombre completo (namespace + tipo): cada consumidor declara su propia copia bajo el namespace `Commerce.Contracts.Orders`, sin proyecto compartido entre servicios.
+- Consola de RabbitMQ: http://localhost:15672 (guest/guest).
+
 ## Requisitos
 
 - .NET 10 SDK
-- Docker (para SQL Server local y Testcontainers)
+- Docker (para SQL Server y RabbitMQ locales, y Testcontainers)
 - `inventory-service` corriendo (para que `CreateOrder`/`ConfirmOrder`/`CancelOrder` funcionen de verdad)
 
 ## Ejecutar localmente
@@ -64,7 +72,7 @@ Swagger disponible en `/swagger` en entorno `Development`. Asegúrate de que `in
 
 ```bash
 dotnet test tests/Orders.UnitTests
-dotnet test tests/Orders.IntegrationTests   # requiere Docker corriendo (SQL Server real vía Testcontainers)
+dotnet test tests/Orders.IntegrationTests   # requiere Docker corriendo (SQL Server y RabbitMQ reales vía Testcontainers)
 ```
 
 ## Endpoints principales

@@ -1,3 +1,4 @@
+using MassTransit;
 using Orders.Application.Common.Interfaces;
 using Orders.Domain.Common;
 using Orders.Domain.Customers;
@@ -16,6 +17,10 @@ public class OrdersDbContext(DbContextOptions<OrdersDbContext> options) : DbCont
     {
         modelBuilder.HasDefaultSchema("orders");
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(OrdersDbContext).Assembly);
+
+        modelBuilder.AddInboxStateEntity();
+        modelBuilder.AddOutboxMessageEntity();
+        modelBuilder.AddOutboxStateEntity();
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

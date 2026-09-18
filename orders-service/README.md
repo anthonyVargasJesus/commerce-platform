@@ -44,6 +44,10 @@ Pending --Confirm--> Confirmed --Ship--> Shipped --Deliver--> Delivered
 
 El `HttpClient` hacia `inventory-service` usa `Microsoft.Extensions.Http.Resilience` (`AddStandardResilienceHandler()`), que aplica reintentos, circuit breaker y timeouts por defecto — si Inventory está caído momentáneamente, Orders no falla de una, reintenta con backoff.
 
+## Seguridad
+
+La API exige un JWT de Keycloak (roles `admin`, `customer`, `service`; ver el README de la raíz). Las llamadas a Inventory no reenvían el token del usuario: `ServiceTokenHandler` adjunta el token propio de `orders-service` (OAuth2 *client credentials*, configurado en `ServiceAuth`), que `ServiceTokenProvider` cachea hasta 30 s antes de que expire. El secreto de `appsettings.json` es solo de desarrollo.
+
 ## Eventos de integración (RabbitMQ + MassTransit outbox)
 
 Los eventos de dominio del agregado `Order` (created/confirmed/shipped/delivered/cancelled) se publican a RabbitMQ como eventos de integración (`Commerce.Contracts.Orders.*`). `DomainEventsOutboxInterceptor` los toma en el `SaveChanges` y los guarda en la tabla `orders.OutboxMessage` **dentro de la misma transacción** que el cambio de la orden; el bus outbox de MassTransit los entrega después a RabbitMQ. Así un evento nunca se pierde si el broker está caído, ni se publica si la transacción falla.

@@ -7,9 +7,10 @@ using Shouldly;
 
 namespace Inventory.IntegrationTests;
 
-public class ProductsControllerTests(InventoryApiFactory factory) : IClassFixture<InventoryApiFactory>
+[Collection(ApiCollection.Name)]
+public class ProductsControllerTests(InventoryApiFactory factory)
 {
-    private readonly HttpClient _client = factory.CreateClient();
+    private readonly HttpClient _client = factory.CreateClientWithRoles("admin");
 
     [Fact]
     public async Task CreateAndGetProduct_ShouldRoundTrip()

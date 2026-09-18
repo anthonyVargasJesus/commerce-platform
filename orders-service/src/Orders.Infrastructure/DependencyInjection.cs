@@ -4,6 +4,7 @@ using Orders.Infrastructure.Messaging;
 using Orders.Infrastructure.ExternalServices.Inventory;
 using Orders.Infrastructure.Persistence;
 using Orders.Infrastructure.Persistence.Repositories;
+using Orders.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,10 +33,22 @@ public static class DependencyInjection
         var inventoryBaseUrl = configuration["Services:Inventory:BaseUrl"]
             ?? throw new InvalidOperationException("Configuration 'Services:Inventory:BaseUrl' was not found.");
 
+        var serviceAuth = new ServiceTokenOptions(
+            configuration["ServiceAuth:TokenEndpoint"] ?? throw new InvalidOperationException("Configuration 'ServiceAuth:TokenEndpoint' was not found."),
+            configuration["ServiceAuth:ClientId"] ?? throw new InvalidOperationException("Configuration 'ServiceAuth:ClientId' was not found."),
+            configuration["ServiceAuth:ClientSecret"] ?? throw new InvalidOperationException("Configuration 'ServiceAuth:ClientSecret' was not found."));
+
+        services.AddSingleton(serviceAuth);
+        services.AddSingleton(TimeProvider.System);
+        services.AddHttpClient(ServiceTokenProvider.HttpClientName);
+        services.AddSingleton<ServiceTokenProvider>();
+        services.AddTransient<ServiceTokenHandler>();
+
         services.AddHttpClient<IInventoryServiceClient, InventoryServiceClient>(client =>
             {
                 client.BaseAddress = new Uri(inventoryBaseUrl);
             })
+            .AddHttpMessageHandler<ServiceTokenHandler>()
             .AddStandardResilienceHandler();
 
         var rabbitHost = configuration["RabbitMq:Host"]

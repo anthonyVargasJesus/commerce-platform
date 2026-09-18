@@ -24,6 +24,8 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
+builder.Services.AddPlatformAuthentication(builder.Configuration);
+
 builder.Services.AddControllers();
 
 builder.Services.AddSwaggerGen();
@@ -93,6 +95,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseAuthentication();
 
 app.UseAuthorization();
 

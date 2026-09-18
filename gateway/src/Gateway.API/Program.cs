@@ -1,3 +1,4 @@
+using Gateway.API.Configuration;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -16,6 +17,9 @@ builder.Services
     .AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
+builder.Services.AddPlatformAuthentication(builder.Configuration);
+builder.Services.AddAuthorizationBuilder().AddPolicy("authenticated", policy => policy.RequireAuthenticatedUser());
+
 builder.Services.AddHealthChecks();
 
 builder.Services.AddOpenTelemetry()
@@ -33,6 +37,9 @@ builder.Services.AddOpenTelemetry()
 var app = builder.Build();
 
 app.UseSerilogRequestLogging();
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapHealthChecks("/health/live");
 

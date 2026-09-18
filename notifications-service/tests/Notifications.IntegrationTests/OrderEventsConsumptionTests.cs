@@ -10,7 +10,8 @@ using Shouldly;
 
 namespace Notifications.IntegrationTests;
 
-public class OrderEventsConsumptionTests(NotificationsApiFactory factory) : IClassFixture<NotificationsApiFactory>
+[Collection(ApiCollection.Name)]
+public class OrderEventsConsumptionTests(NotificationsApiFactory factory)
 {
     private sealed record NotificationsPage(IReadOnlyList<NotificationDto> Items);
 
@@ -18,7 +19,7 @@ public class OrderEventsConsumptionTests(NotificationsApiFactory factory) : ICla
 
     private sealed record MailpitSearch(IReadOnlyList<MailpitMessage> Messages);
 
-    private readonly HttpClient _client = factory.CreateClient();
+    private readonly HttpClient _client = factory.CreateClientWithRoles("admin");
 
     private async Task PublishAsync<T>(T message, Guid? messageId = null)
         where T : class

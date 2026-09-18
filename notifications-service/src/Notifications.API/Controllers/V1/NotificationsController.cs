@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Asp.Versioning;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -9,6 +10,7 @@ using Notifications.Application.Notifications.Queries.GetNotificationsList;
 namespace Notifications.API.Controllers.V1;
 
 [ApiController]
+[Authorize(Roles = "admin")]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/notifications")]
 public class NotificationsController(ISender sender) : ControllerBase

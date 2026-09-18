@@ -12,9 +12,11 @@ Las rutas y los destinos viven en `appsettings.json` (`ReverseProxy`) y se sobre
 
 Exporta trazas, métricas y logs por OpenTelemetry igual que el resto: la traza de una petición empieza aquí y sigue por los servicios.
 
-## Estado
+## Autenticación
 
-Por ahora solo enruta. La autenticación (validar el JWT que emite Keycloak y aplicar roles) llega en los siguientes cambios.
+El gateway valida el JWT de Keycloak (firma, emisor, audiencia y expiración) y rechaza con **401** toda petición sin token válido; las rutas `/inventory`, `/orders` y `/notifications` usan la política `authenticated`, y `/health/live` es público. El token se reenvía sin cambios al servicio, que lo valida de nuevo y aplica los roles (el gateway no decide permisos finos).
+
+Configuración (`Authentication` en `appsettings.json`): `Authority` es el emisor que Keycloak escribe en los tokens (`http://localhost:8180/realms/commerce`), `Audience` es `commerce-platform`, y `MetadataAddress` (opcional) es la dirección desde donde se descargan las claves; en Docker apunta a `http://keycloak:8080/...` porque el emisor público y la dirección interna no coinciden.
 
 ## Ejecutar
 

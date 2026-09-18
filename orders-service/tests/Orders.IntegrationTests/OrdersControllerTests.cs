@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Orders.Application.Customers.Commands.CreateCustomer;
 using Orders.Application.Orders.Commands.CreateOrder;
 using Orders.Application.Orders.Dtos;
 using Orders.Domain.Orders;
@@ -22,6 +23,16 @@ public class OrdersControllerTests(OrdersApiFactory factory) : IClassFixture<Ord
                 .WithBodyAsJson(new { id = productId, sku, name = "Widget", price, isActive }));
     }
 
+    private async Task<Guid> CreateCustomerAsync()
+    {
+        var response = await _client.PostAsJsonAsync(
+            "/api/v1/customers",
+            new CreateCustomerCommand("Test Customer", $"{Guid.NewGuid():N}@example.com", null));
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        var customer = await response.Content.ReadFromJsonAsync<CreatedCustomerDto>();
+        return customer!.Id;
+    }
+
     private void StubAdjustStock(Guid productId, HttpStatusCode statusCode)
     {
         factory.InventoryServer
@@ -35,7 +46,7 @@ public class OrdersControllerTests(OrdersApiFactory factory) : IClassFixture<Ord
         var productId = Guid.NewGuid();
         StubProduct(productId, "SKU-1", 12.5m);
 
-        var command = new CreateOrderCommand(Guid.NewGuid(), [new CreateOrderItemRequest(productId, 3)]);
+        var command = new CreateOrderCommand(await CreateCustomerAsync(), [new CreateOrderItemRequest(productId, 3)]);
 
         var response = await _client.PostAsJsonAsync("/api/v1/orders", command);
 
@@ -53,11 +64,37 @@ public class OrdersControllerTests(OrdersApiFactory factory) : IClassFixture<Ord
             .Given(Request.Create().WithPath($"/api/v1/products/{productId}").UsingGet())
             .RespondWith(Response.Create().WithStatusCode(404));
 
+        var command = new CreateOrderCommand(await CreateCustomerAsync(), [new CreateOrderItemRequest(productId, 1)]);
+
+        var response = await _client.PostAsJsonAsync("/api/v1/orders", command);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task CreateOrder_WhenCustomerDoesNotExist_ShouldReturnNotFound()
+    {
+        var productId = Guid.NewGuid();
+        StubProduct(productId, "SKU-5", 10m);
+
         var command = new CreateOrderCommand(Guid.NewGuid(), [new CreateOrderItemRequest(productId, 1)]);
 
         var response = await _client.PostAsJsonAsync("/api/v1/orders", command);
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task DeleteCustomer_WhenCustomerHasOrders_ShouldReturnConflict()
+    {
+        var productId = Guid.NewGuid();
+        StubProduct(productId, "SKU-6", 10m);
+        var customerId = await CreateCustomerAsync();
+        await _client.PostAsJsonAsync("/api/v1/orders", new CreateOrderCommand(customerId, [new CreateOrderItemRequest(productId, 1)]));
+
+        var response = await _client.DeleteAsync($"/api/v1/customers/{customerId}");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
     }
 
     [Fact]
@@ -69,7 +106,7 @@ public class OrdersControllerTests(OrdersApiFactory factory) : IClassFixture<Ord
 
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/orders",
-            new CreateOrderCommand(Guid.NewGuid(), [new CreateOrderItemRequest(productId, 2)]));
+            new CreateOrderCommand(await CreateCustomerAsync(), [new CreateOrderItemRequest(productId, 2)]));
         var created = await createResponse.Content.ReadFromJsonAsync<OrderDto>();
 
         var confirmResponse = await _client.PostAsync($"/api/v1/orders/{created!.Id}/confirm", null);
@@ -88,7 +125,7 @@ public class OrdersControllerTests(OrdersApiFactory factory) : IClassFixture<Ord
 
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/orders",
-            new CreateOrderCommand(Guid.NewGuid(), [new CreateOrderItemRequest(productId, 100)]));
+            new CreateOrderCommand(await CreateCustomerAsync(), [new CreateOrderItemRequest(productId, 100)]));
         var created = await createResponse.Content.ReadFromJsonAsync<OrderDto>();
 
         var confirmResponse = await _client.PostAsync($"/api/v1/orders/{created!.Id}/confirm", null);
@@ -109,7 +146,7 @@ public class OrdersControllerTests(OrdersApiFactory factory) : IClassFixture<Ord
 
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/orders",
-            new CreateOrderCommand(Guid.NewGuid(), [new CreateOrderItemRequest(productId, 1)]));
+            new CreateOrderCommand(await CreateCustomerAsync(), [new CreateOrderItemRequest(productId, 1)]));
         var created = await createResponse.Content.ReadFromJsonAsync<OrderDto>();
         await _client.PostAsync($"/api/v1/orders/{created!.Id}/confirm", null);
 

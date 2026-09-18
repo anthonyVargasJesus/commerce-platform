@@ -3,6 +3,7 @@ using Inventory.Domain.Categories;
 using Inventory.Domain.Common;
 using Inventory.Domain.ProductTypes;
 using Inventory.Domain.Products;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 
 namespace Inventory.Infrastructure.Persistence;
@@ -19,6 +20,10 @@ public class InventoryDbContext(DbContextOptions<InventoryDbContext> options) : 
     {
         modelBuilder.HasDefaultSchema("inventory");
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(InventoryDbContext).Assembly);
+
+        modelBuilder.AddInboxStateEntity();
+        modelBuilder.AddOutboxMessageEntity();
+        modelBuilder.AddOutboxStateEntity();
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

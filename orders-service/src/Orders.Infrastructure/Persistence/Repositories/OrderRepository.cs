@@ -10,11 +10,19 @@ public class OrderRepository(OrdersDbContext dbContext) : IOrderRepository
         dbContext.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
 
     public async Task<(IReadOnlyList<Order> Items, int TotalCount)> GetPagedAsync(
+        Guid? customerId,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken)
     {
-        var query = dbContext.Orders.Include(o => o.Items).OrderByDescending(o => o.CreatedAt);
+        var orders = dbContext.Orders.Include(o => o.Items).AsQueryable();
+
+        if (customerId is not null)
+        {
+            orders = orders.Where(o => o.CustomerId == customerId);
+        }
+
+        var query = orders.OrderByDescending(o => o.CreatedAt);
 
         var totalCount = await query.CountAsync(cancellationToken);
 

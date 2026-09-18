@@ -142,16 +142,16 @@ GitHub Flow: `main` siempre desplegable y protegida (solo PR, con CI en verde). 
 | Rol | Quién | Puede |
 |---|---|---|
 | `admin` | `admin` / `admin` | Todo: catálogo, clientes, enviar/entregar órdenes, ver notificaciones |
-| `customer` | `maria` / `maria` | Leer el catálogo, crear/ver/confirmar/cancelar órdenes |
+| `customer` | `maria` / `maria` | Leer el catálogo y crear/ver/confirmar/cancelar **sus propias** órdenes |
 | `service` | cliente `orders-service` | Ajustar stock en Inventory (lo usa Orders) |
 
 | Servicio | Lectura | Escritura |
 |---|---|---|
 | inventory | cualquier usuario autenticado | `admin`; ajustar stock también `service` |
-| orders | cualquier usuario autenticado | crear/confirmar/cancelar: autenticado; enviar/entregar: `admin`; clientes: solo `admin` |
+| orders | `customer`: solo sus órdenes; `admin`/`service`: todas | crear/confirmar/cancelar: autenticado (un `customer` solo sobre sus órdenes); enviar/entregar: `admin`; clientes: solo `admin` |
 | notifications | solo `admin` | - |
 
-**Comunicación entre servicios**: Orders no reenvía el token del usuario a Inventory; usa su propia identidad (`orders-service`, OAuth2 *client credentials*) y cachea el token hasta poco antes de que expire. Así un `customer` puede confirmar su orden sin tener permiso de ajustar stock directamente.
+**Cada cliente ve solo sus órdenes**: Orders liga al usuario con su `Customer` por el **email** del token (único en Keycloak y en la tabla de clientes; `maria@example.com` necesita un cliente con ese email, que crea el `admin`). Un `customer` solo lista sus órdenes, y ver, confirmar o cancelar la de otro responde **404** (no 403, para no revelar que existe); crear una orden para otro cliente responde 403, y un usuario sin perfil de cliente no ve nada ni puede ordenar. `admin` y `service` no tienen esta restricción. La regla vive en `OrderAccessPolicy` (capa Application) y se prueba con tests unitarios y de integración. Orders no reenvía el token del usuario a Inventory; usa su propia identidad (`orders-service`, OAuth2 *client credentials*) y cachea el token hasta poco antes de que expire. Así un `customer` puede confirmar su orden sin tener permiso de ajustar stock directamente.
 
 Un token se pide así (también sirve para probar en Swagger o Postman):
 
@@ -163,7 +163,7 @@ curl -s -X POST http://localhost:8180/realms/commerce/protocol/openid-connect/to
 ### Simplificaciones conscientes (frente a un entorno de producción)
 
 - Roles gruesos; en producción se usarían *scopes* más finos (`orders:read`, `orders:write`) y permisos por recurso.
-- Un `customer` puede crear/ver órdenes de cualquier cliente: falta ligar el usuario de Keycloak con el `Customer` de Orders para que solo vea las suyas.
+- El usuario se liga con su cliente por email; un identificador estable (un atributo de Keycloak con el id del cliente, sincronizado al crearlo) sería más robusto si los usuarios pudieran cambiar su email.
 - Keycloak corre en modo desarrollo (base embebida, HTTP); en producción llevaría su propia base de datos, HTTPS y alta disponibilidad. Los secretos del realm (`orders-service-dev-secret`) son de desarrollo: en producción vienen de un almacén de secretos.
 - El gateway no limita el número de peticiones ni protege contra abuso.
 - Las bases de datos, RabbitMQ y las herramientas (Mailpit, dashboard) publican sus puertos en el compose para trabajar en local; en producción solo el gateway quedaría expuesto, y los secretos y contraseñas vendrían de un almacén de secretos.

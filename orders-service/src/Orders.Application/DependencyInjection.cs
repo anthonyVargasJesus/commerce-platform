@@ -1,6 +1,7 @@
 using System.Reflection;
 using FluentValidation;
 using Orders.Application.Common.Behaviours;
+using Orders.Application.Common.Security;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Orders.Application;
@@ -18,6 +19,8 @@ public static class DependencyInjection
             config.RegisterServicesFromAssembly(assembly);
             config.AddOpenBehavior(typeof(ValidationBehaviour<,>));
         });
+
+        services.AddScoped<IOrderAccessPolicy, OrderAccessPolicy>();
 
         return services;
     }

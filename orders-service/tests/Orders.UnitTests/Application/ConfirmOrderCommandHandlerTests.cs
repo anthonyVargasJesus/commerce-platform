@@ -1,5 +1,6 @@
 using Orders.Application.Common.Exceptions;
 using Orders.Application.Common.Interfaces;
+using Orders.Application.Common.Security;
 using Orders.Application.Orders.Commands.ConfirmOrder;
 using Orders.Domain.Orders;
 using Moq;
@@ -12,8 +13,9 @@ public class ConfirmOrderCommandHandlerTests
     private readonly Mock<IOrderRepository> _repository = new();
     private readonly Mock<IInventoryServiceClient> _inventoryClient = new();
     private readonly Mock<IUnitOfWork> _unitOfWork = new();
+    private readonly Mock<IOrderAccessPolicy> _accessPolicy = new();
 
-    private ConfirmOrderCommandHandler CreateHandler() => new(_repository.Object, _inventoryClient.Object, _unitOfWork.Object);
+    private ConfirmOrderCommandHandler CreateHandler() => new(_repository.Object, _accessPolicy.Object, _inventoryClient.Object, _unitOfWork.Object);
 
     private static Order CreateOrderWithItems(params (Guid ProductId, int Quantity)[] items)
     {
@@ -57,6 +59,21 @@ public class ConfirmOrderCommandHandlerTests
         _inventoryClient.Verify(c => c.AdjustStockAsync(productA, 2, It.IsAny<CancellationToken>()), Times.Once);
         order.Status.ShouldBe(OrderStatus.Pending);
         _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WhenTheOrderIsNotVisibleToTheUser_ShouldNotTouchInventory()
+    {
+        var order = CreateOrderWithItems((Guid.NewGuid(), 1));
+        _repository.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>())).ReturnsAsync(order);
+        _accessPolicy
+            .Setup(p => p.EnsureCanAccessAsync(order, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new NotFoundException("Order", order.Id));
+
+        await Should.ThrowAsync<NotFoundException>(() => CreateHandler().Handle(new ConfirmOrderCommand(order.Id), CancellationToken.None));
+
+        _inventoryClient.Verify(c => c.AdjustStockAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        order.Status.ShouldBe(OrderStatus.Pending);
     }
 
     [Fact]

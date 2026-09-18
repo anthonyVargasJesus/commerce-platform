@@ -14,7 +14,7 @@ public static class TestTokens
 
     public static readonly SymmetricSecurityKey SigningKey = new(Encoding.UTF8.GetBytes("integration-tests-signing-key-0123456789"));
 
-    public static string Create(string[] roles, string audience = Audience, TimeSpan? lifetime = null)
+    public static string Create(string[] roles, string audience = Audience, TimeSpan? lifetime = null, string email = "test-user@example.com")
     {
         var now = DateTime.UtcNow;
         var expires = now.Add(lifetime ?? TimeSpan.FromHours(1));
@@ -30,6 +30,7 @@ public static class TestTokens
             {
                 ["sub"] = Guid.NewGuid().ToString(),
                 ["preferred_username"] = "test-user",
+                ["email"] = email,
                 ["realm_access"] = new Dictionary<string, object> { ["roles"] = roles },
             },
             SigningCredentials = new SigningCredentials(SigningKey, SecurityAlgorithms.HmacSha256),
@@ -39,4 +40,6 @@ public static class TestTokens
     }
 
     public static AuthenticationHeaderValue Bearer(params string[] roles) => new("Bearer", Create(roles));
+
+    public static AuthenticationHeaderValue BearerFor(string email, params string[] roles) => new("Bearer", Create(roles, email: email));
 }

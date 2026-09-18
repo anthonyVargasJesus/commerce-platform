@@ -40,6 +40,7 @@ public class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger) : IE
         exception switch
         {
             NotFoundException => (StatusCodes.Status404NotFound, exception.Message, null),
+            ForbiddenException => (StatusCodes.Status403Forbidden, exception.Message, null),
             ConflictException => (StatusCodes.Status409Conflict, exception.Message, null),
             ValidationException validationException => (
                 StatusCodes.Status400BadRequest,

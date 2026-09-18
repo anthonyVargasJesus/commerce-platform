@@ -1,5 +1,6 @@
 using Orders.Application.Common.Exceptions;
 using Orders.Application.Common.Interfaces;
+using Orders.Application.Common.Security;
 using Orders.Application.Orders.Commands.CancelOrder;
 using Orders.Domain.Orders;
 using Moq;
@@ -12,8 +13,25 @@ public class CancelOrderCommandHandlerTests
     private readonly Mock<IOrderRepository> _repository = new();
     private readonly Mock<IInventoryServiceClient> _inventoryClient = new();
     private readonly Mock<IUnitOfWork> _unitOfWork = new();
+    private readonly Mock<IOrderAccessPolicy> _accessPolicy = new();
 
-    private CancelOrderCommandHandler CreateHandler() => new(_repository.Object, _inventoryClient.Object, _unitOfWork.Object);
+    private CancelOrderCommandHandler CreateHandler() => new(_repository.Object, _accessPolicy.Object, _inventoryClient.Object, _unitOfWork.Object);
+
+    [Fact]
+    public async Task Handle_WhenTheOrderIsNotVisibleToTheUser_ShouldNotCancelOrRestock()
+    {
+        var order = Order.Create(Guid.NewGuid(), [OrderItem.Create(Guid.NewGuid(), "SKU", "Widget", 10m, 3)]);
+        order.Confirm();
+        _repository.Setup(r => r.GetByIdAsync(order.Id, It.IsAny<CancellationToken>())).ReturnsAsync(order);
+        _accessPolicy
+            .Setup(p => p.EnsureCanAccessAsync(order, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new NotFoundException("Order", order.Id));
+
+        await Should.ThrowAsync<NotFoundException>(() => CreateHandler().Handle(new CancelOrderCommand(order.Id), CancellationToken.None));
+
+        order.Status.ShouldBe(OrderStatus.Confirmed);
+        _inventoryClient.Verify(c => c.AdjustStockAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
 
     [Fact]
     public async Task Handle_WhenOrderWasConfirmed_ShouldRestockItemsInInventory()

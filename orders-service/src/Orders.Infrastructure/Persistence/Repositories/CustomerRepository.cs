@@ -12,6 +12,9 @@ public class CustomerRepository(OrdersDbContext dbContext) : ICustomerRepository
     public async Task<IReadOnlyList<Customer>> GetAllAsync(CancellationToken cancellationToken) =>
         await dbContext.Customers.OrderBy(c => c.Name).ToListAsync(cancellationToken);
 
+    public Task<Customer?> GetByEmailAsync(string email, CancellationToken cancellationToken) =>
+        dbContext.Customers.FirstOrDefaultAsync(c => c.Email == email, cancellationToken);
+
     public Task<bool> EmailExistsAsync(string email, Guid? excludingId, CancellationToken cancellationToken) =>
         dbContext.Customers.AnyAsync(c => c.Email == email && (excludingId == null || c.Id != excludingId), cancellationToken);
 

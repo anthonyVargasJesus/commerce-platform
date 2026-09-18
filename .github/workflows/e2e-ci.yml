@@ -1,0 +1,60 @@
+name: E2E CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      platform: ${{ steps.filter.outputs.platform }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            platform:
+              - 'gateway/**'
+              - 'inventory-service/**'
+              - 'orders-service/**'
+              - 'notifications-service/**'
+              - 'keycloak/**'
+              - 'docker-compose.yml'
+              - 'e2e-tests/**'
+              - '.github/workflows/e2e-ci.yml'
+
+  e2e-tests:
+    needs: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        if: needs.changes.outputs.platform == 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        if: needs.changes.outputs.platform == 'true'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      # The fixture builds the images and starts the whole platform with docker compose, runs the scenarios
+      # against the gateway, and tears everything down.
+      - name: End-to-end tests
+        if: needs.changes.outputs.platform == 'true'
+        run: dotnet test e2e-tests/Platform.E2ETests --configuration Release
+        env:
+          E2E_LOG_FILE: ${{ github.workspace }}/e2e-tests/TestResults/platform.log
+
+      - name: Upload the platform logs
+        if: always() && needs.changes.outputs.platform == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-platform-logs
+          path: e2e-tests/TestResults/platform.log
+          if-no-files-found: ignore

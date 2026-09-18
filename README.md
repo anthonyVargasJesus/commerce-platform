@@ -123,6 +123,8 @@ Cada servicio tiene pruebas unitarias y de integración. Las de integración usa
 cd orders-service && dotnet test
 ```
 
+Además hay pruebas de **extremo a extremo** de toda la plataforma en [`e2e-tests/`](e2e-tests/README.md): levantan el `docker compose` y recorren los escenarios reales por el gateway con tokens de Keycloak (ciclo de vida de una orden con sus correos, propiedad de las órdenes, alerta de stock bajo, seguridad y una traza única entre servicios). Corren en la CI en cada PR que toque la plataforma.
+
 ## Flujo de trabajo y CI
 
 GitHub Flow: `main` siempre desplegable y protegida (solo PR, con CI en verde). Las ramas se nombran `<servicio>/<tipo>-<descripción>` (por ejemplo `orders/feature-create-order`). Cada servicio tiene su workflow en `.github/workflows/` que solo ejecuta sus pasos cuando cambia su carpeta, pero siempre reporta el estado para que los checks requeridos no queden pendientes.

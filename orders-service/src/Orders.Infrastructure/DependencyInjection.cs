@@ -21,6 +21,7 @@ public static class DependencyInjection
 
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<OrdersDbContext>());
         services.AddScoped<IOrderRepository, OrderRepository>();
+        services.AddScoped<ICustomerRepository, CustomerRepository>();
 
         var inventoryBaseUrl = configuration["Services:Inventory:BaseUrl"]
             ?? throw new InvalidOperationException("Configuration 'Services:Inventory:BaseUrl' was not found.");

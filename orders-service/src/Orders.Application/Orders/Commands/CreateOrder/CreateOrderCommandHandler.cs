@@ -1,5 +1,6 @@
 using Orders.Application.Common.Exceptions;
 using Orders.Application.Common.Interfaces;
+using Orders.Application.Common.Security;
 using Orders.Application.Orders.Dtos;
 using Orders.Domain.Orders;
 using MediatR;
@@ -9,12 +10,20 @@ namespace Orders.Application.Orders.Commands.CreateOrder;
 public sealed class CreateOrderCommandHandler(
     IOrderRepository repository,
     ICustomerRepository customerRepository,
+    IOrderAccessPolicy accessPolicy,
     IInventoryServiceClient inventoryClient,
     IUnitOfWork unitOfWork)
     : IRequestHandler<CreateOrderCommand, OrderDto>
 {
     public async Task<OrderDto> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
     {
+        var scope = await accessPolicy.GetScopeAsync(cancellationToken);
+
+        if (!scope.Allows(request.CustomerId))
+        {
+            throw new ForbiddenException("You can only create orders for your own customer profile.");
+        }
+
         _ = await customerRepository.GetByIdAsync(request.CustomerId, cancellationToken)
             ?? throw new NotFoundException(nameof(Domain.Customers.Customer), request.CustomerId);
 

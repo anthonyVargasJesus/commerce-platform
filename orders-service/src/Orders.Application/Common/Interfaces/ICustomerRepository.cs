@@ -8,6 +8,8 @@ public interface ICustomerRepository
 
     Task<IReadOnlyList<Customer>> GetAllAsync(CancellationToken cancellationToken);
 
+    Task<Customer?> GetByEmailAsync(string email, CancellationToken cancellationToken);
+
     Task<bool> EmailExistsAsync(string email, Guid? excludingId, CancellationToken cancellationToken);
 
     void Add(Customer customer);

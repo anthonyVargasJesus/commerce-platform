@@ -46,7 +46,7 @@ El `HttpClient` hacia `inventory-service` usa `Microsoft.Extensions.Http.Resilie
 
 ## Seguridad
 
-La API exige un JWT de Keycloak (roles `admin`, `customer`, `service`; ver el README de la raíz). Las llamadas a Inventory no reenvían el token del usuario: `ServiceTokenHandler` adjunta el token propio de `orders-service` (OAuth2 *client credentials*, configurado en `ServiceAuth`), que `ServiceTokenProvider` cachea hasta 30 s antes de que expire. El secreto de `appsettings.json` es solo de desarrollo.
+La API exige un JWT de Keycloak (roles `admin`, `customer`, `service`; ver el README de la raíz). Un `customer` solo accede a **sus** órdenes: `OrderAccessPolicy` toma el email del token, busca el `Customer` con ese email y limita listados, consultas, confirmaciones y cancelaciones a ese cliente (`404` para las ajenas, `403` al crear una para otro); `admin` y `service` ven todo. Las llamadas a Inventory no reenvían el token del usuario: `ServiceTokenHandler` adjunta el token propio de `orders-service` (OAuth2 *client credentials*, configurado en `ServiceAuth`), que `ServiceTokenProvider` cachea hasta 30 s antes de que expire. El secreto de `appsettings.json` es solo de desarrollo.
 
 ## Eventos de integración (RabbitMQ + MassTransit outbox)
 

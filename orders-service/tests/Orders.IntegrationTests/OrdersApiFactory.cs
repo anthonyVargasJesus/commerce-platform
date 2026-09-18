@@ -25,6 +25,13 @@ public class OrdersApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     public WireMockServer InventoryServer { get; private set; } = null!;
 
+    public HttpClient CreateClientFor(string email, params string[] roles)
+    {
+        var client = CreateClient();
+        client.DefaultRequestHeaders.Authorization = TestTokens.BearerFor(email, roles);
+        return client;
+    }
+
     public HttpClient CreateClientWithRoles(params string[] roles)
     {
         var client = CreateClient();

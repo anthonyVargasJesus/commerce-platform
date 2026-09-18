@@ -7,6 +7,7 @@ public interface IOrderRepository
     Task<Order?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
     Task<(IReadOnlyList<Order> Items, int TotalCount)> GetPagedAsync(
+        Guid? customerId,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken);

@@ -2,6 +2,8 @@ using Asp.Versioning;
 using Asp.Versioning.ApiExplorer;
 using Orders.API.Configuration;
 using Orders.API.Middleware;
+using Orders.API.Security;
+using Orders.Application.Common.Interfaces;
 using Orders.Application;
 using Orders.Infrastructure;
 using Orders.Infrastructure.Persistence;
@@ -25,6 +27,8 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
 builder.Services.AddPlatformAuthentication(builder.Configuration);
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
 
 builder.Services.AddControllers();
 

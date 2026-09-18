@@ -1,5 +1,6 @@
 using Orders.Application.Common.Exceptions;
 using Orders.Application.Common.Interfaces;
+using Orders.Application.Common.Security;
 using Orders.Application.Orders.Commands.CreateOrder;
 using Orders.Domain.Customers;
 using Orders.Domain.Orders;
@@ -14,9 +15,15 @@ public class CreateOrderCommandHandlerTests
     private readonly Mock<ICustomerRepository> _customerRepository = new();
     private readonly Mock<IInventoryServiceClient> _inventoryClient = new();
     private readonly Mock<IUnitOfWork> _unitOfWork = new();
+    private readonly Mock<IOrderAccessPolicy> _accessPolicy = new();
+
+    public CreateOrderCommandHandlerTests()
+    {
+        _accessPolicy.Setup(p => p.GetScopeAsync(It.IsAny<CancellationToken>())).ReturnsAsync(OrderScope.Unrestricted);
+    }
 
     private CreateOrderCommandHandler CreateHandler() =>
-        new(_repository.Object, _customerRepository.Object, _inventoryClient.Object, _unitOfWork.Object);
+        new(_repository.Object, _customerRepository.Object, _accessPolicy.Object, _inventoryClient.Object, _unitOfWork.Object);
 
     private Customer SetupExistingCustomer()
     {
@@ -42,6 +49,27 @@ public class CreateOrderCommandHandlerTests
         result.Status.ShouldBe(OrderStatus.Pending);
         _repository.Verify(r => r.Add(It.IsAny<Order>()), Times.Once);
         _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WhenTheUserIsLimitedToAnotherCustomer_ShouldThrowForbiddenException()
+    {
+        _accessPolicy.Setup(p => p.GetScopeAsync(It.IsAny<CancellationToken>())).ReturnsAsync(OrderScope.OnlyCustomer(Guid.NewGuid()));
+        var command = new CreateOrderCommand(Guid.NewGuid(), [new CreateOrderItemRequest(Guid.NewGuid(), 1)]);
+
+        await Should.ThrowAsync<ForbiddenException>(() => CreateHandler().Handle(command, CancellationToken.None));
+
+        _customerRepository.Verify(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _repository.Verify(r => r.Add(It.IsAny<Order>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WhenTheUserHasNoCustomerProfile_ShouldThrowForbiddenException()
+    {
+        _accessPolicy.Setup(p => p.GetScopeAsync(It.IsAny<CancellationToken>())).ReturnsAsync(OrderScope.Nothing);
+        var command = new CreateOrderCommand(Guid.NewGuid(), [new CreateOrderItemRequest(Guid.NewGuid(), 1)]);
+
+        await Should.ThrowAsync<ForbiddenException>(() => CreateHandler().Handle(command, CancellationToken.None));
     }
 
     [Fact]

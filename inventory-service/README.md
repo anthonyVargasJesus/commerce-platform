@@ -29,6 +29,7 @@ Las dependencias fluyen hacia el dominio: `API -> Application/Infrastructure -> 
 - **Documentación**: Swagger/OpenAPI por versión.
 - **Auditoría**: `CreatedAt`/`LastModifiedAt` automáticos en `SaveChangesAsync`.
 - **Tests**: unitarios (dominio + handlers) e integración con contenedor real de PostgreSQL.
+- **Eventos de integración**: los eventos de dominio de `Product` se publican a RabbitMQ (`Commerce.Contracts.Inventory.*`: `ProductCreated`, `StockAdjusted`, `ProductLowStock`) con un outbox transaccional de MassTransit: el evento se guarda en la misma transacción que el cambio y se entrega después, así no se pierde si el broker está caído. MassTransit se fija en la v8 (Apache 2.0). Mismo patrón que `orders-service`.
 - **Docker**: imagen multi-stage, no-root, lista para producción.
 - **CI**: build + tests + build de imagen Docker en GitHub Actions.
 
@@ -36,6 +37,7 @@ Las dependencias fluyen hacia el dominio: `API -> Application/Infrastructure -> 
 
 - .NET 10 SDK
 - Docker (para PostgreSQL local y Testcontainers)
+- RabbitMQ corriendo (broker compartido de la plataforma): `docker compose up -d rabbitmq` desde `orders-service/`
 
 ## Ejecutar localmente
 
@@ -73,6 +75,6 @@ dotnet test tests/Inventory.IntegrationTests   # requiere Docker corriendo (Test
 
 ## Próximos pasos
 
-- Publicar eventos de dominio a un broker de mensajería (RabbitMQ/MassTransit) cuando se agregue el servicio `Notifications`.
+- Que `notifications-service` (u otro) consuma `ProductLowStock` para alertas de stock bajo.
 - Añadir el servicio `Orders`, que consumirá `Inventory` vía HTTP para reservar stock.
 - Añadir el `API Gateway` (YARP) delante de ambos servicios.

@@ -27,12 +27,22 @@ services:
       timeout: 5s
       retries: 10
 
+  aspire-dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:latest
+    environment:
+      ASPIRE_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
+    ports:
+      - "18888:18888"   # dashboard UI: http://localhost:18888
+      - "4317:18889"    # OTLP gRPC: services running outside Docker export here (default endpoint)
+
   orders-api:
     build:
       context: .
       dockerfile: src/Orders.API/Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: Development
+      # The Aspire Dashboard is shared by the platform and started from orders-service/docker-compose.yml.
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://host.docker.internal:4317"
       ConnectionStrings__OrdersDb: "Server=orders-db,1433;Database=orders;User Id=sa;Password=Your_password123;TrustServerCertificate=True;"
       Services__Inventory__BaseUrl: "http://host.docker.internal:5254"
       RabbitMq__Host: "rabbitmq"

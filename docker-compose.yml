@@ -5,7 +5,7 @@
 # EF Core migrations on startup.
 #
 # Host ports: inventory-api 8080, orders-api 8081, notifications-api 8082, RabbitMQ console 15672,
-# Mailpit (captured emails) 8025.
+# Mailpit (captured emails) 8025, Aspire Dashboard (traces, metrics, logs) 18888.
 
 name: commerce-platform
 
@@ -22,6 +22,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+
+  aspire-dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:latest
+    environment:
+      ASPIRE_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
+    ports:
+      - "18888:18888"   # dashboard UI: http://localhost:18888
+      - "4317:18889"    # OTLP gRPC: services running outside Docker export here (default endpoint)
 
   inventory-db:
     image: postgres:17-alpine
@@ -76,6 +84,7 @@ services:
       dockerfile: src/Inventory.API/Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: Development
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire-dashboard:18889"
       ConnectionStrings__InventoryDb: "Host=inventory-db;Port=5432;Database=inventory;Username=inventory;Password=inventory"
       RabbitMq__Host: "rabbitmq"
     ports:
@@ -92,6 +101,7 @@ services:
       dockerfile: src/Orders.API/Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: Development
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire-dashboard:18889"
       ConnectionStrings__OrdersDb: "Server=orders-db,1433;Database=orders;User Id=sa;Password=Your_password123;TrustServerCertificate=True;"
       Services__Inventory__BaseUrl: "http://inventory-api:8080"
       RabbitMq__Host: "rabbitmq"
@@ -117,6 +127,7 @@ services:
       dockerfile: src/Notifications.API/Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: Development
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire-dashboard:18889"
       ConnectionStrings__NotificationsDb: "Host=notifications-db;Port=5432;Database=notifications;Username=postgres;Password=postgres"
       RabbitMq__Host: "rabbitmq"
       Smtp__Host: "mailpit"

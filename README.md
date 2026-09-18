@@ -8,6 +8,9 @@ Plataforma de comercio construida como microservicios en **.NET 10**: catálogo 
 flowchart LR
     client([Cliente HTTP])
 
+    gw[gateway<br/>YARP :8000]
+    kc[Keycloak<br/>emite los JWT]
+
     subgraph inv[inventory-service]
         inv_api[API]
         inv_db[(PostgreSQL)]
@@ -25,9 +28,11 @@ flowchart LR
     smtp[[Mailpit / SMTP]]
     otel[[Aspire Dashboard<br/>trazas, métricas, logs]]
 
-    client --> inv_api
-    client --> ord_api
-    client --> not_api
+    client --> gw
+    client -. login .-> kc
+    gw --> inv_api
+    gw --> ord_api
+    gw --> not_api
     inv_api --- inv_db
     ord_api --- ord_db
     not_api --- not_db
@@ -41,6 +46,7 @@ flowchart LR
 
 | Servicio | Responsabilidad | Base de datos | Puerto (Docker) |
 |---|---|---|---|
+| [gateway](gateway/README.md) | Única entrada HTTP: enruta por prefijo a los servicios (YARP) | - | 8000 |
 | [inventory-service](inventory-service/README.md) | Catálogo de productos, categorías, tipos y control de stock | PostgreSQL | 8080 |
 | [orders-service](orders-service/README.md) | Clientes y ciclo de vida de las órdenes (crear, confirmar, enviar, entregar, cancelar) | SQL Server | 8081 |
 | [notifications-service](notifications-service/README.md) | Convierte los eventos en correos (al cliente y a operaciones) | PostgreSQL | 8082 |
@@ -63,6 +69,8 @@ docker compose up --build
 
 | URL | Qué es |
 |---|---|
+| http://localhost:8000 | Gateway: `/inventory/**`, `/orders/**`, `/notifications/**` |
+| http://localhost:8180 | Keycloak (consola `admin` / `admin`; realm `commerce`) |
 | http://localhost:8080/swagger | API de Inventory |
 | http://localhost:8081/swagger | API de Orders |
 | http://localhost:8082/swagger | API de Notifications |
@@ -121,6 +129,13 @@ GitHub Flow: `main` siempre desplegable y protegida (solo PR, con CI en verde). 
 - **Compensación síncrona** al confirmar/cancelar órdenes (sin saga): simplificación consciente, documentada en el README de Orders.
 - Las imágenes Alpine corren en globalización invariante: el código nunca pide una cultura concreta y las imágenes que usan SQL Server instalan ICU.
 
-## Pendiente
+## Seguridad (en construcción)
 
-API Gateway con autenticación (JWT) como única entrada a la plataforma.
+El gateway enruta y **Keycloak** ya está listo con el realm `commerce` (se importa desde `keycloak/commerce-realm.json`): los usuarios `admin` / `admin` (rol `admin`) y `maria` / `maria` (rol `customer`), y el cliente `orders-service` para las llamadas entre servicios (rol `service`). Un token se pide así:
+
+```bash
+curl -s -X POST http://localhost:8180/realms/commerce/protocol/openid-connect/token \
+  -d grant_type=password -d client_id=commerce-web -d username=maria -d password=maria
+```
+
+Todavía **no se exige el token**: falta que el gateway y los tres servicios validen el JWT y apliquen los roles, y que Orders use su propia cuenta de servicio para hablar con Inventory. Ese es el siguiente trabajo.

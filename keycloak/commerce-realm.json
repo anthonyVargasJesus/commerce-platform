@@ -1,0 +1,90 @@
+{
+  "realm": "commerce",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "accessTokenLifespan": 900,
+  "roles": {
+    "realm": [
+      { "name": "admin", "description": "Manages the catalog, customers and the whole order lifecycle" },
+      { "name": "customer", "description": "Creates and views orders" },
+      { "name": "service", "description": "Machine-to-machine calls between services" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "commerce-web",
+      "name": "Demo client (password grant for curl and tests; a real front end would use the authorization code flow)",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": ["http://localhost:*"],
+      "webOrigins": ["+"],
+      "protocolMappers": [
+        {
+          "name": "commerce-platform-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "commerce-platform",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "orders-service",
+      "name": "orders-service (calls inventory-service with its own identity)",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "orders-service-dev-secret",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "commerce-platform-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "commerce-platform",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "admin",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "admin@commerce.local",
+      "firstName": "Ada",
+      "lastName": "Admin",
+      "credentials": [{ "type": "password", "value": "admin", "temporary": false }],
+      "realmRoles": ["admin"]
+    },
+    {
+      "username": "maria",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "maria@example.com",
+      "firstName": "Maria",
+      "lastName": "Lopez",
+      "credentials": [{ "type": "password", "value": "maria", "temporary": false }],
+      "realmRoles": ["customer"]
+    },
+    {
+      "username": "service-account-orders-service",
+      "enabled": true,
+      "serviceAccountClientId": "orders-service",
+      "realmRoles": ["service"]
+    }
+  ]
+}

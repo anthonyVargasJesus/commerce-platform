@@ -1,0 +1,73 @@
+name: Gateway CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+defaults:
+  run:
+    working-directory: gateway
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      gateway: ${{ steps.filter.outputs.gateway }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            gateway:
+              - 'gateway/**'
+
+  gateway-build-and-test:
+    needs: changes
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        if: needs.changes.outputs.gateway == 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        if: needs.changes.outputs.gateway == 'true'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        if: needs.changes.outputs.gateway == 'true'
+        run: dotnet restore
+
+      - name: Build
+        if: needs.changes.outputs.gateway == 'true'
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Tests
+        if: needs.changes.outputs.gateway == 'true'
+        run: dotnet test tests/Gateway.IntegrationTests --no-build --configuration Release --logger trx --results-directory TestResults
+
+      - name: Publish test results
+        if: always() && needs.changes.outputs.gateway == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: gateway-test-results
+          path: gateway/TestResults
+
+  gateway-docker-build:
+    needs: [changes, gateway-build-and-test]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        if: needs.changes.outputs.gateway == 'true'
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        if: needs.changes.outputs.gateway == 'true'
+        run: docker build -f src/Gateway.API/Dockerfile -t gateway-api:${{ github.sha }} .
+        working-directory: gateway

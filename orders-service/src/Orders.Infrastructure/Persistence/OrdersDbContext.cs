@@ -1,5 +1,6 @@
 using Orders.Application.Common.Interfaces;
 using Orders.Domain.Common;
+using Orders.Domain.Customers;
 using Orders.Domain.Orders;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,6 +9,8 @@ namespace Orders.Infrastructure.Persistence;
 public class OrdersDbContext(DbContextOptions<OrdersDbContext> options) : DbContext(options), IUnitOfWork
 {
     public DbSet<Order> Orders => Set<Order>();
+
+    public DbSet<Customer> Customers => Set<Customer>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

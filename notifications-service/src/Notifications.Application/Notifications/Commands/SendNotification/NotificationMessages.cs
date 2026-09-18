@@ -7,7 +7,9 @@ internal static class NotificationMessages
 {
     public static string For(NotificationType type, Guid orderId, decimal totalAmount)
     {
-        var total = totalAmount.ToString("C", CultureInfo.GetCultureInfo("en-US"));
+        // Explicit format on the invariant culture: container images run in globalization-invariant mode,
+        // where asking for a specific culture (e.g. en-US) throws.
+        var total = "$" + totalAmount.ToString("N2", CultureInfo.InvariantCulture);
 
         return type switch
         {

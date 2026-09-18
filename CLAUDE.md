@@ -12,6 +12,15 @@ This is a **monorepo intended to hold multiple .NET 10 microservices** (`invento
 - **Branch naming includes the service**, since multiple services share this repo: `<service>/<type>-<short-description>`, e.g. `inventory/fix-product-soft-delete`, `orders/feature-create-order`. A bare `fix/...` or `feature/...` without the service prefix is ambiguous once more than one service exists in the repo.
 - **`main` has branch protection**: no direct pushes (PRs only), required status checks `build-and-test` and `docker-build` must pass, `enforce_admins` is on (no bypass). CI workflows are path-filtered per service (see `.github/workflows/inventory-ci.yml`'s `paths: inventory-service/**`), so a PR only triggers the CI of the service(s) it actually touches.
 
+## Whole platform (run from the repo root)
+
+```bash
+docker compose up --build      # RabbitMQ, 3 databases and the 3 APIs (inventory :8080, orders :8081, notifications :8082)
+docker compose down             # add -v to also delete the data volumes
+```
+
+The root `docker-compose.yml` and each service's own compose file publish the same host ports, so run one or the other. Container images run on Alpine in globalization-invariant mode: never ask for a specific culture (e.g. `CultureInfo.GetCultureInfo("en-US")`) in code, and images that talk to SQL Server need ICU (see the orders Dockerfile). CI only builds the images, so this kind of failure only shows when the containers actually run.
+
 ## Commands (run from `inventory-service/`)
 
 ```bash

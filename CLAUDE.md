@@ -21,6 +21,8 @@ docker compose down             # add -v to also delete the data volumes
 
 The root `docker-compose.yml` and each service's own compose file publish the same host ports, so run one or the other. Container images run on Alpine in globalization-invariant mode: never ask for a specific culture (e.g. `CultureInfo.GetCultureInfo("en-US")`) in code, and images that talk to SQL Server need ICU (see the orders Dockerfile). CI only builds the images, so this kind of failure only shows when the containers actually run.
 
+Observability: every API exports traces, metrics and Serilog logs over OTLP to the Aspire Dashboard (UI on http://localhost:18888; the compose files publish OTLP on host port 4317, the default exporter endpoint). Traces cross services, including the RabbitMQ hop (`AddSource("MassTransit")`). Add new services to this setup the same way (`AddSource`/`AddMeter` for the DB driver and MassTransit, `Serilog.Sinks.OpenTelemetry` with an explicit `service.name`). The root `README.md` describes the whole platform.
+
 ## Commands (run from `inventory-service/`)
 
 ```bash

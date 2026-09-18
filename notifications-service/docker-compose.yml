@@ -27,6 +27,8 @@ services:
       dockerfile: src/Notifications.API/Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: Development
+      # The Aspire Dashboard is shared by the platform and started from orders-service/docker-compose.yml.
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://host.docker.internal:4317"
       ConnectionStrings__NotificationsDb: "Host=notifications-db;Port=5432;Database=notifications;Username=postgres;Password=postgres"
       # RabbitMQ is shared by the whole platform and is started from orders-service/docker-compose.yml.
       RabbitMq__Host: "host.docker.internal"

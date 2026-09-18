@@ -18,7 +18,8 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
     .ReadFrom.Services(services)
     .Enrich.FromLogContext()
-    .Enrich.WithProperty("Service", "Orders.API"));
+    .Enrich.WithProperty("Service", "Orders.API")
+    .WriteTo.OpenTelemetry(options => options.ResourceAttributes = new Dictionary<string, object> { ["service.name"] = "Orders.API" }));
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
@@ -57,10 +58,14 @@ builder.Services.AddOpenTelemetry()
     .WithTracing(tracing => tracing
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
+        .AddSqlClientInstrumentation()
+        .AddSource("MassTransit")
         .AddOtlpExporter())
     .WithMetrics(metrics => metrics
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
+        .AddRuntimeInstrumentation()
+        .AddMeter("MassTransit")
         .AddOtlpExporter());
 
 var app = builder.Build();

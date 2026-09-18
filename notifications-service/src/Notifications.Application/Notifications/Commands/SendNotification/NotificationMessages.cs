@@ -5,7 +5,7 @@ namespace Notifications.Application.Notifications.Commands.SendNotification;
 
 internal static class NotificationMessages
 {
-    public static string For(NotificationType type, Guid orderId, decimal totalAmount)
+    public static string For(NotificationType type, string customerName, Guid orderId, decimal totalAmount)
     {
         // Explicit format on the invariant culture: container images run in globalization-invariant mode,
         // where asking for a specific culture (e.g. en-US) throws.
@@ -13,11 +13,11 @@ internal static class NotificationMessages
 
         return type switch
         {
-            NotificationType.OrderCreated => $"We received your order {orderId} ({total}).",
-            NotificationType.OrderConfirmed => $"Your order {orderId} ({total}) has been confirmed.",
-            NotificationType.OrderShipped => $"Your order {orderId} is on its way.",
-            NotificationType.OrderDelivered => $"Your order {orderId} was delivered.",
-            NotificationType.OrderCancelled => $"Your order {orderId} ({total}) has been cancelled.",
+            NotificationType.OrderCreated => $"Hi {customerName}, we received your order {orderId} ({total}).",
+            NotificationType.OrderConfirmed => $"Hi {customerName}, your order {orderId} ({total}) has been confirmed.",
+            NotificationType.OrderShipped => $"Hi {customerName}, your order {orderId} is on its way.",
+            NotificationType.OrderDelivered => $"Hi {customerName}, your order {orderId} was delivered.",
+            NotificationType.OrderCancelled => $"Hi {customerName}, your order {orderId} ({total}) has been cancelled.",
             _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unknown notification type."),
         };
     }

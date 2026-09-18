@@ -29,11 +29,13 @@ public class SendNotificationCommandHandlerTests
             .Callback<Notification, CancellationToken>((n, _) => sent = n)
             .Returns(Task.CompletedTask);
 
-        await CreateHandler().Handle(new SendNotificationCommand(orderId, Guid.NewGuid(), type, 49.5m), CancellationToken.None);
+        await CreateHandler().Handle(new SendNotificationCommand(orderId, Guid.NewGuid(), "Jane Doe", "jane@example.com", type, 49.5m), CancellationToken.None);
 
         sent.ShouldNotBeNull();
         sent.Type.ShouldBe(type);
         sent.Message.ShouldContain(orderId.ToString());
+        sent.Message.ShouldContain("Jane Doe");
+        sent.Recipient.ShouldBe("jane@example.com");
         _repository.Verify(r => r.Add(sent), Times.Once);
         _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -47,7 +49,7 @@ public class SendNotificationCommandHandlerTests
             .Callback<Notification, CancellationToken>((n, _) => sent = n)
             .Returns(Task.CompletedTask);
 
-        await CreateHandler().Handle(new SendNotificationCommand(Guid.NewGuid(), Guid.NewGuid(), NotificationType.OrderConfirmed, 1234.5m), CancellationToken.None);
+        await CreateHandler().Handle(new SendNotificationCommand(Guid.NewGuid(), Guid.NewGuid(), "Jane Doe", "jane@example.com", NotificationType.OrderConfirmed, 1234.5m), CancellationToken.None);
 
         sent.ShouldNotBeNull();
         sent.Message.ShouldContain("$1,234.50");
@@ -61,7 +63,7 @@ public class SendNotificationCommandHandlerTests
             .ThrowsAsync(new InvalidOperationException("channel down"));
 
         await Should.ThrowAsync<InvalidOperationException>(
-            () => CreateHandler().Handle(new SendNotificationCommand(Guid.NewGuid(), Guid.NewGuid(), NotificationType.OrderConfirmed, 10m), CancellationToken.None));
+            () => CreateHandler().Handle(new SendNotificationCommand(Guid.NewGuid(), Guid.NewGuid(), "Jane Doe", "jane@example.com", NotificationType.OrderConfirmed, 10m), CancellationToken.None));
 
         _repository.Verify(r => r.Add(It.IsAny<Notification>()), Times.Never);
         _unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);

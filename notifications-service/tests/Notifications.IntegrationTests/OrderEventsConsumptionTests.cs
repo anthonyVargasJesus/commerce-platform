@@ -14,6 +14,10 @@ public class OrderEventsConsumptionTests(NotificationsApiFactory factory) : ICla
 {
     private sealed record NotificationsPage(IReadOnlyList<NotificationDto> Items);
 
+    private sealed record MailpitMessage(string Subject, string Snippet);
+
+    private sealed record MailpitSearch(IReadOnlyList<MailpitMessage> Messages);
+
     private readonly HttpClient _client = factory.CreateClient();
 
     private async Task PublishAsync<T>(T message, Guid? messageId = null)
@@ -56,14 +60,62 @@ public class OrderEventsConsumptionTests(NotificationsApiFactory factory) : ICla
         var orderId = Guid.NewGuid();
         var customerId = Guid.NewGuid();
 
-        await PublishAsync(new OrderConfirmed(orderId, customerId, 120m, DateTimeOffset.UtcNow));
+        await PublishAsync(new OrderConfirmed(orderId, customerId, "Jane Doe", "jane@example.com", 120m, DateTimeOffset.UtcNow));
 
         var items = await WaitForNotificationsAsync(orderId, 1);
 
         var notification = items.ShouldHaveSingleItem();
         notification.Type.ShouldBe(NotificationType.OrderConfirmed);
         notification.CustomerId.ShouldBe(customerId);
+        notification.Recipient.ShouldBe("jane@example.com");
         notification.Message.ShouldContain(orderId.ToString());
+    }
+
+    private async Task<MailpitMessage> WaitForEmailAsync(string query)
+    {
+        using var mailpit = new HttpClient { BaseAddress = new Uri(factory.MailpitApiUrl) };
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+
+        while (DateTime.UtcNow < deadline)
+        {
+            var result = await mailpit.GetFromJsonAsync<MailpitSearch>($"/api/v1/search?query={Uri.EscapeDataString(query)}");
+            if (result!.Messages.Count > 0)
+            {
+                return result.Messages[0];
+            }
+
+            await Task.Delay(250);
+        }
+
+        throw new TimeoutException($"No email matching '{query}' arrived in Mailpit.");
+    }
+
+    [Fact]
+    public async Task OrderConfirmed_WhenPublished_ShouldEmailTheCustomer()
+    {
+        var orderId = Guid.NewGuid();
+        var email = $"{Guid.NewGuid():N}@example.com";
+
+        await PublishAsync(new OrderConfirmed(orderId, Guid.NewGuid(), "Jane Doe", email, 75m, DateTimeOffset.UtcNow));
+
+        var mail = await WaitForEmailAsync($"to:{email}");
+
+        mail.Subject.ShouldBe("Your order is confirmed");
+        mail.Snippet.ShouldContain("Jane Doe");
+        mail.Snippet.ShouldContain(orderId.ToString());
+    }
+
+    [Fact]
+    public async Task ProductLowStock_WhenPublished_ShouldEmailTheOperationsAddress()
+    {
+        var name = $"Widget-{Guid.NewGuid():N}";
+
+        await PublishAsync(new ProductLowStock(Guid.NewGuid(), "SKU-8", name, 1, 5, DateTimeOffset.UtcNow));
+
+        var mail = await WaitForEmailAsync($"to:ops@commerce-platform.local {name}");
+
+        mail.Subject.ShouldBe("Low stock alert");
+        mail.Snippet.ShouldContain(name);
     }
 
     [Fact]
@@ -71,7 +123,7 @@ public class OrderEventsConsumptionTests(NotificationsApiFactory factory) : ICla
     {
         var orderId = Guid.NewGuid();
         var messageId = Guid.NewGuid();
-        var message = new OrderShipped(orderId, Guid.NewGuid(), 10m, DateTimeOffset.UtcNow);
+        var message = new OrderShipped(orderId, Guid.NewGuid(), "Jane Doe", "jane@example.com", 10m, DateTimeOffset.UtcNow);
 
         await PublishAsync(message, messageId);
         await PublishAsync(message, messageId);

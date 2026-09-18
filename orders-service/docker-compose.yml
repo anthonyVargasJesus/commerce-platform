@@ -14,6 +14,19 @@ services:
       timeout: 5s
       retries: 10
 
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   orders-api:
     build:
       context: .
@@ -22,6 +35,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__OrdersDb: "Server=orders-db,1433;Database=orders;User Id=sa;Password=Your_password123;TrustServerCertificate=True;"
       Services__Inventory__BaseUrl: "http://host.docker.internal:5254"
+      RabbitMq__Host: "rabbitmq"
     ports:
       - "8081:8080"
     depends_on:
@@ -30,3 +44,4 @@ services:
 
 volumes:
   orders-db-data:
+  rabbitmq-data:

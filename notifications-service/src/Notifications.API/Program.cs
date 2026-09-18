@@ -4,6 +4,8 @@ using Notifications.API.Configuration;
 using Notifications.API.Middleware;
 using Notifications.Application;
 using Notifications.Infrastructure;
+using Notifications.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -79,6 +81,9 @@ if (app.Environment.IsDevelopment())
             options.SwaggerEndpoint($"/swagger/{groupName}/swagger.json", groupName);
         }
     });
+
+    using var migrationScope = app.Services.CreateScope();
+    await migrationScope.ServiceProvider.GetRequiredService<NotificationsDbContext>().Database.MigrateAsync();
 }
 
 app.UseHttpsRedirection();

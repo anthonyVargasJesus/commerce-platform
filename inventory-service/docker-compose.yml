@@ -22,6 +22,8 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__InventoryDb: "Host=inventory-db;Port=5432;Database=inventory;Username=inventory;Password=inventory"
+      # RabbitMQ is shared by the whole platform and is started from orders-service/docker-compose.yml.
+      RabbitMq__Host: "host.docker.internal"
     ports:
       - "8080:8080"
     depends_on:

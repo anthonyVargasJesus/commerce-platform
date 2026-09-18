@@ -4,7 +4,8 @@
 # (they publish the same host ports). APIs run in the Development environment so they apply their
 # EF Core migrations on startup.
 #
-# Host ports: inventory-api 8080, orders-api 8081, notifications-api 8082, RabbitMQ console 15672.
+# Host ports: inventory-api 8080, orders-api 8081, notifications-api 8082, RabbitMQ console 15672,
+# Mailpit (captured emails) 8025.
 
 name: commerce-platform
 
@@ -104,6 +105,12 @@ services:
       inventory-api:
         condition: service_started
 
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # web UI: http://localhost:8025
+
   notifications-api:
     build:
       context: ./notifications-service
@@ -112,11 +119,14 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__NotificationsDb: "Host=notifications-db;Port=5432;Database=notifications;Username=postgres;Password=postgres"
       RabbitMq__Host: "rabbitmq"
+      Smtp__Host: "mailpit"
     ports:
       - "8082:8080"
     depends_on:
       notifications-db:
         condition: service_healthy
+      mailpit:
+        condition: service_started
       rabbitmq:
         condition: service_healthy
 

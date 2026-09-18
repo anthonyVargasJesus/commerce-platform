@@ -22,7 +22,16 @@ public static class DependencyInjection
 
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<NotificationsDbContext>());
         services.AddScoped<INotificationRepository, NotificationRepository>();
-        services.AddSingleton<INotificationSender, LoggingNotificationSender>();
+        // Channel "Smtp" (default) sends real emails; "Log" only writes to the log.
+        if (string.Equals(configuration["Notifications:Channel"], "Log", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddSingleton<INotificationSender, LoggingNotificationSender>();
+        }
+        else
+        {
+            services.AddSingleton(configuration.GetSection("Smtp").Get<SmtpOptions>() ?? new SmtpOptions());
+            services.AddSingleton<INotificationSender, SmtpNotificationSender>();
+        }
 
         var rabbitHost = configuration["RabbitMq:Host"]
             ?? throw new InvalidOperationException("Configuration 'RabbitMq:Host' was not found.");
@@ -37,7 +46,13 @@ public static class DependencyInjection
             // The inbox makes consumption idempotent: RabbitMQ delivers at least once, so a redelivered
             // message is detected by its MessageId and skipped instead of creating a duplicate notification.
             bus.AddEntityFrameworkOutbox<NotificationsDbContext>(outbox => outbox.UsePostgres());
-            bus.AddConfigureEndpointsCallback((context, _, endpoint) => endpoint.UseEntityFrameworkOutbox<NotificationsDbContext>(context));
+            bus.AddConfigureEndpointsCallback((context, _, endpoint) =>
+            {
+                // Retry wraps the inbox/outbox so every attempt runs in a fresh transaction; a message that
+                // keeps failing (e.g. SMTP down) ends up in the _error queue instead of being lost.
+                endpoint.UseMessageRetry(retry => retry.Interval(3, TimeSpan.FromSeconds(2)));
+                endpoint.UseEntityFrameworkOutbox<NotificationsDbContext>(context);
+            });
 
             bus.UsingRabbitMq((context, cfg) =>
             {

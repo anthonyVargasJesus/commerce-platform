@@ -13,6 +13,9 @@ public sealed class Notification : BaseAuditableEntity
 
     public Guid? ProductId { get; private set; }
 
+    // Address the notification was sent to. Null for internal alerts, which go to the operations address.
+    public string? Recipient { get; private set; }
+
     public NotificationType Type { get; private set; }
 
     public string Message { get; private set; } = string.Empty;
@@ -21,7 +24,7 @@ public sealed class Notification : BaseAuditableEntity
     {
     }
 
-    public static Notification Create(Guid orderId, Guid customerId, NotificationType type, string message)
+    public static Notification Create(Guid orderId, Guid customerId, string recipient, NotificationType type, string message)
     {
         if (orderId == Guid.Empty)
         {
@@ -33,12 +36,18 @@ public sealed class Notification : BaseAuditableEntity
             throw new DomainException("Notification customer id cannot be empty.");
         }
 
+        if (string.IsNullOrWhiteSpace(recipient))
+        {
+            throw new DomainException("Notification recipient cannot be empty.");
+        }
+
         EnsureMessage(message);
 
         return new Notification
         {
             OrderId = orderId,
             CustomerId = customerId,
+            Recipient = recipient.Trim(),
             Type = type,
             Message = message.Trim(),
         };

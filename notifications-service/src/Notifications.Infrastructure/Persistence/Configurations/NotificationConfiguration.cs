@@ -18,6 +18,8 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
 
         builder.Property(n => n.ProductId).HasColumnName("product_id");
 
+        builder.Property(n => n.Recipient).HasColumnName("recipient").HasMaxLength(200);
+
         builder.Property(n => n.Type)
             .HasColumnName("type")
             .HasConversion<string>()

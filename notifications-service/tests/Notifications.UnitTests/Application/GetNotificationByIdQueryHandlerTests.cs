@@ -14,7 +14,7 @@ public class GetNotificationByIdQueryHandlerTests
     [Fact]
     public async Task Handle_WhenNotificationExists_ShouldReturnDto()
     {
-        var notification = Notification.Create(Guid.NewGuid(), Guid.NewGuid(), NotificationType.OrderShipped, "Shipped");
+        var notification = Notification.Create(Guid.NewGuid(), Guid.NewGuid(), "jane@example.com", NotificationType.OrderShipped, "Shipped");
         _repository.Setup(r => r.GetByIdAsync(notification.Id, It.IsAny<CancellationToken>())).ReturnsAsync(notification);
 
         var result = await new GetNotificationByIdQueryHandler(_repository.Object)

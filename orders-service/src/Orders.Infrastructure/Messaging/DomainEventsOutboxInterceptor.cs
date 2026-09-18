@@ -2,6 +2,7 @@ using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
+using Orders.Domain.Customers;
 using Orders.Domain.Orders;
 
 namespace Orders.Infrastructure.Messaging;
@@ -35,13 +36,19 @@ public sealed class DomainEventsOutboxInterceptor(IServiceProvider serviceProvid
             return;
         }
 
+        // The events carry the customer's name and email so consumers (e.g. notifications) need not call back.
+        var customerIds = orders.Select(order => order.CustomerId).Distinct().ToList();
+        var customers = await context.Set<Customer>()
+            .Where(customer => customerIds.Contains(customer.Id))
+            .ToDictionaryAsync(customer => customer.Id, cancellationToken);
+
         var publishEndpoint = serviceProvider.GetRequiredService<IPublishEndpoint>();
 
         foreach (var order in orders)
         {
             foreach (var domainEvent in order.DomainEvents)
             {
-                await publishEndpoint.Publish(OrderIntegrationEventMapper.Map(order, domainEvent), cancellationToken);
+                await publishEndpoint.Publish(OrderIntegrationEventMapper.Map(order, customers[order.CustomerId], domainEvent), cancellationToken);
             }
 
             order.ClearDomainEvents();

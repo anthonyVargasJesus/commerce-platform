@@ -15,6 +15,12 @@ services:
       timeout: 5s
       retries: 10
 
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # web UI: http://localhost:8025
+
   notifications-api:
     build:
       context: .
@@ -24,11 +30,14 @@ services:
       ConnectionStrings__NotificationsDb: "Host=notifications-db;Port=5432;Database=notifications;Username=postgres;Password=postgres"
       # RabbitMQ is shared by the whole platform and is started from orders-service/docker-compose.yml.
       RabbitMq__Host: "host.docker.internal"
+      Smtp__Host: "mailpit"
     ports:
       - "8082:8080"
     depends_on:
       notifications-db:
         condition: service_healthy
+      mailpit:
+        condition: service_started
 
 volumes:
   notifications-db-data:

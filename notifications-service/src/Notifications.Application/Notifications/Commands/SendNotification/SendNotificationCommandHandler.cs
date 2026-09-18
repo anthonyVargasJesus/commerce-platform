@@ -11,9 +11,9 @@ public sealed class SendNotificationCommandHandler(
 {
     public async Task Handle(SendNotificationCommand request, CancellationToken cancellationToken)
     {
-        var message = NotificationMessages.For(request.Type, request.OrderId, request.TotalAmount);
+        var message = NotificationMessages.For(request.Type, request.CustomerName, request.OrderId, request.TotalAmount);
 
-        var notification = Notification.Create(request.OrderId, request.CustomerId, request.Type, message);
+        var notification = Notification.Create(request.OrderId, request.CustomerId, request.CustomerEmail, request.Type, message);
 
         await sender.SendAsync(notification, cancellationToken);
 

@@ -4,6 +4,8 @@ using Orders.API.Configuration;
 using Orders.API.Middleware;
 using Orders.Application;
 using Orders.Infrastructure;
+using Orders.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -79,6 +81,9 @@ if (app.Environment.IsDevelopment())
             options.SwaggerEndpoint($"/swagger/{groupName}/swagger.json", groupName);
         }
     });
+
+    using var migrationScope = app.Services.CreateScope();
+    await migrationScope.ServiceProvider.GetRequiredService<OrdersDbContext>().Database.MigrateAsync();
 }
 
 app.UseHttpsRedirection();

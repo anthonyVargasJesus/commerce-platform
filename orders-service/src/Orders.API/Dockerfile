@@ -14,6 +14,10 @@ RUN dotnet publish "src/Orders.API/Orders.API.csproj" -c Release -o /app/publish
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS final
 WORKDIR /app
 
+# Microsoft.Data.SqlClient does not support .NET invariant globalization mode, which the Alpine image enables by default.
+RUN apk add --no-cache icu-libs
+ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
+
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
 

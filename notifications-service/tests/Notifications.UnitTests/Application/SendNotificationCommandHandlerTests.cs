@@ -39,6 +39,21 @@ public class SendNotificationCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_ShouldFormatTheOrderTotalAsDollars()
+    {
+        Notification? sent = null;
+        _sender
+            .Setup(s => s.SendAsync(It.IsAny<Notification>(), It.IsAny<CancellationToken>()))
+            .Callback<Notification, CancellationToken>((n, _) => sent = n)
+            .Returns(Task.CompletedTask);
+
+        await CreateHandler().Handle(new SendNotificationCommand(Guid.NewGuid(), Guid.NewGuid(), NotificationType.OrderConfirmed, 1234.5m), CancellationToken.None);
+
+        sent.ShouldNotBeNull();
+        sent.Message.ShouldContain("$1,234.50");
+    }
+
+    [Fact]
     public async Task Handle_WhenSenderFails_ShouldNotPersistTheNotification()
     {
         _sender

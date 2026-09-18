@@ -1,0 +1,127 @@
+# Whole platform in one command:  docker compose up --build
+#
+# Each service also has its own docker-compose.yml for working on it alone; do not run both at once
+# (they publish the same host ports). APIs run in the Development environment so they apply their
+# EF Core migrations on startup.
+#
+# Host ports: inventory-api 8080, orders-api 8081, notifications-api 8082, RabbitMQ console 15672.
+
+name: commerce-platform
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  inventory-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: inventory
+      POSTGRES_USER: inventory
+      POSTGRES_PASSWORD: inventory
+    ports:
+      - "5433:5432"
+    volumes:
+      - inventory-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inventory"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  orders-db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Your_password123"
+    ports:
+      - "1434:1433"
+    volumes:
+      - orders-db-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  notifications-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: notifications
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - notifications-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d notifications"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  inventory-api:
+    build:
+      context: ./inventory-service
+      dockerfile: src/Inventory.API/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__InventoryDb: "Host=inventory-db;Port=5432;Database=inventory;Username=inventory;Password=inventory"
+      RabbitMq__Host: "rabbitmq"
+    ports:
+      - "8080:8080"
+    depends_on:
+      inventory-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  orders-api:
+    build:
+      context: ./orders-service
+      dockerfile: src/Orders.API/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__OrdersDb: "Server=orders-db,1433;Database=orders;User Id=sa;Password=Your_password123;TrustServerCertificate=True;"
+      Services__Inventory__BaseUrl: "http://inventory-api:8080"
+      RabbitMq__Host: "rabbitmq"
+    ports:
+      - "8081:8080"
+    depends_on:
+      orders-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      inventory-api:
+        condition: service_started
+
+  notifications-api:
+    build:
+      context: ./notifications-service
+      dockerfile: src/Notifications.API/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__NotificationsDb: "Host=notifications-db;Port=5432;Database=notifications;Username=postgres;Password=postgres"
+      RabbitMq__Host: "rabbitmq"
+    ports:
+      - "8082:8080"
+    depends_on:
+      notifications-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+volumes:
+  rabbitmq-data:
+  inventory-db-data:
+  orders-db-data:
+  notifications-db-data:

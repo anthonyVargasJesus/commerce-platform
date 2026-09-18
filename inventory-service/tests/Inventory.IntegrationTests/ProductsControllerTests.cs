@@ -48,4 +48,16 @@ public class ProductsControllerTests(InventoryApiFactory factory) : IClassFixtur
 
         response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
     }
+
+    [Fact]
+    public async Task AdjustStock_WithMissingDelta_ShouldReturnBadRequest()
+    {
+        var command = new CreateProductCommand($"SKU-{Guid.NewGuid().ToString("N")[..8]}", "Widget Missing Delta", null, 5m, 1, 0);
+        var createResponse = await _client.PostAsJsonAsync("/api/v1/products", command);
+        var created = await createResponse.Content.ReadFromJsonAsync<ProductDto>();
+
+        var response = await _client.PostAsJsonAsync($"/api/v1/products/{created!.Id}/adjust-stock", new { });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
 }

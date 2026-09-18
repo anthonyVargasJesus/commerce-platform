@@ -14,6 +14,10 @@ out/
 TestResults/
 *.trx
 
+## SonarQube local analysis artifacts
+.sonarqube/
+.scannerwork/
+
 ## Misc
 *.log
 .env

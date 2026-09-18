@@ -24,7 +24,6 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 builder.Services.AddControllers();
 
-builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.ConfigureOptions<ConfigureSwaggerOptions>();
 
@@ -76,9 +75,9 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(options =>
     {
         var provider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
-        foreach (var description in provider.ApiVersionDescriptions)
+        foreach (var groupName in provider.ApiVersionDescriptions.Select(description => description.GroupName))
         {
-            options.SwaggerEndpoint($"/swagger/{description.GroupName}/swagger.json", description.GroupName);
+            options.SwaggerEndpoint($"/swagger/{groupName}/swagger.json", groupName);
         }
     });
 
@@ -97,6 +96,4 @@ app.MapControllers();
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });
 
-app.Run();
-
-public partial class Program;
+await app.RunAsync();

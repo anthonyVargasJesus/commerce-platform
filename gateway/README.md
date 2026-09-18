@@ -24,7 +24,7 @@ Configuración (`Authentication` en `appsettings.json`): `Authority` es el emiso
 dotnet run --project src/Gateway.API      # http://localhost:8000; apunta a los servicios en sus puertos locales (5254, 5280, 5290)
 ```
 
-O con toda la plataforma: `docker compose up --build` desde la raíz (gateway en `http://localhost:8000`).
+O con toda la plataforma: `docker compose up --build` desde la raíz (gateway en `http://localhost:8000`). Es la única entrada publicada: los servicios solo son alcanzables dentro de la red de Docker.
 
 ## Tests
 

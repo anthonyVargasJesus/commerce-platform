@@ -9,6 +9,18 @@ public class ConfigureSwaggerOptions(IApiVersionDescriptionProvider provider) : 
 {
     public void Configure(SwaggerGenOptions options)
     {
+        options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            Description = "A Keycloak access token (see the root README).",
+        });
+        options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+        {
+            [new OpenApiSecuritySchemeReference("Bearer", document)] = [],
+        });
+
         foreach (var description in provider.ApiVersionDescriptions)
         {
             options.SwaggerDoc(description.GroupName, new OpenApiInfo

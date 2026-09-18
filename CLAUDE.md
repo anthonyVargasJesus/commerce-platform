@@ -15,11 +15,11 @@ This is a **monorepo intended to hold multiple .NET 10 microservices** (`invento
 ## Whole platform (run from the repo root)
 
 ```bash
-docker compose up --build      # RabbitMQ, 3 databases and the 3 APIs (inventory :8080, orders :8081, notifications :8082)
+docker compose up --build      # RabbitMQ, Keycloak, 3 databases, the 3 APIs and the gateway (:8000, the only published entry point)
 docker compose down             # add -v to also delete the data volumes
 ```
 
-The root `docker-compose.yml` and each service's own compose file publish the same host ports, so run one or the other. Container images run on Alpine in globalization-invariant mode: never ask for a specific culture (e.g. `CultureInfo.GetCultureInfo("en-US")`) in code, and images that talk to SQL Server need ICU (see the orders Dockerfile). CI only builds the images, so this kind of failure only shows when the containers actually run.
+The APIs are not published by the root compose; `docker compose -f docker-compose.yml -f docker-compose.direct-access.yml up` also publishes them on :8080/:8081/:8082 for Swagger (whose Authorize button takes a Keycloak token) and debugging. The root `docker-compose.yml` and each service's own compose file publish the same host ports for the databases and RabbitMQ, so run one or the other. Container images run on Alpine in globalization-invariant mode: never ask for a specific culture (e.g. `CultureInfo.GetCultureInfo("en-US")`) in code, and images that talk to SQL Server need ICU (see the orders Dockerfile). CI only builds the images, so this kind of failure only shows when the containers actually run.
 
 Authentication: each API has `Configuration/AuthenticationExtensions.cs` (JwtBearer + `realm_access.roles` mapped to role claims; `Authentication:Authority` is the public issuer, `Authentication:MetadataAddress` the internal Keycloak URL in Docker). Controllers use `[Authorize]`/`[Authorize(Roles = ...)]`. Integration tests sign real JWTs with a test key (`TestTokens`, `factory.CreateClientWithRoles(...)`); all test classes of a project share one factory through the `ApiCollection` xUnit collection because the factories configure the host through process-wide environment variables.
 

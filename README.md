@@ -44,7 +44,7 @@ flowchart LR
     not_api --> smtp
 ```
 
-| Servicio | Responsabilidad | Base de datos | Puerto (Docker) |
+| Servicio | Responsabilidad | Base de datos | Puerto interno (Docker) |
 |---|---|---|---|
 | [gateway](gateway/README.md) | Única entrada HTTP: enruta por prefijo a los servicios (YARP) | - | 8000 |
 | [inventory-service](inventory-service/README.md) | Catálogo de productos, categorías, tipos y control de stock | PostgreSQL | 8080 |
@@ -71,12 +71,11 @@ docker compose up --build
 |---|---|
 | http://localhost:8000 | Gateway: `/inventory/**`, `/orders/**`, `/notifications/**` |
 | http://localhost:8180 | Keycloak (consola `admin` / `admin`; realm `commerce`) |
-| http://localhost:8080/swagger | API de Inventory |
-| http://localhost:8081/swagger | API de Orders |
-| http://localhost:8082/swagger | API de Notifications |
 | http://localhost:8025 | Mailpit: los correos que envía Notifications |
 | http://localhost:15672 | Consola de RabbitMQ (`guest` / `guest`) |
 | http://localhost:18888 | Aspire Dashboard: trazas, métricas y logs |
+
+Las tres APIs **no publican sus puertos**: la única entrada es el gateway (`:8000`). Para explorarlas directamente con Swagger (`http://localhost:8080/swagger`, `:8081`, `:8082`; el botón *Authorize* acepta un token de Keycloak) levanta también el archivo de acceso directo: `docker compose -f docker-compose.yml -f docker-compose.direct-access.yml up --build`.
 
 Las APIs corren en `Development`, así que aplican sus migraciones al arrancar e Inventory carga datos de ejemplo. Para trabajar en un solo servicio hay un `docker-compose.yml` dentro de cada carpeta (no los uses a la vez que el de la raíz: comparten puertos).
 
@@ -167,5 +166,5 @@ curl -s -X POST http://localhost:8180/realms/commerce/protocol/openid-connect/to
 - Un `customer` puede crear/ver órdenes de cualquier cliente: falta ligar el usuario de Keycloak con el `Customer` de Orders para que solo vea las suyas.
 - Keycloak corre en modo desarrollo (base embebida, HTTP); en producción llevaría su propia base de datos, HTTPS y alta disponibilidad. Los secretos del realm (`orders-service-dev-secret`) son de desarrollo: en producción vienen de un almacén de secretos.
 - El gateway no limita el número de peticiones ni protege contra abuso.
-- Los servicios siguen publicando sus puertos en Docker (con o sin gateway ya exigen token); cerrarlos queda como siguiente paso.
+- Las bases de datos, RabbitMQ y las herramientas (Mailpit, dashboard) publican sus puertos en el compose para trabajar en local; en producción solo el gateway quedaría expuesto, y los secretos y contraseñas vendrían de un almacén de secretos.
 

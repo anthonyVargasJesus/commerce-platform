@@ -4,9 +4,11 @@
 # (they publish the same host ports). APIs run in the Development environment so they apply their
 # EF Core migrations on startup.
 #
-# Host ports: inventory-api 8080, orders-api 8081, notifications-api 8082, RabbitMQ console 15672,
-# Mailpit (captured emails) 8025, Aspire Dashboard (traces, metrics, logs) 18888,
-# gateway 8000 (single entry point), Keycloak 8180.
+# The three APIs are NOT published: the only way in is the gateway. To reach them directly (Swagger, debugging)
+# add the override:  docker compose -f docker-compose.yml -f docker-compose.direct-access.yml up
+#
+# Host ports: gateway 8000, Keycloak 8180, RabbitMQ console 15672, Mailpit (captured emails) 8025,
+# Aspire Dashboard (traces, metrics, logs) 18888.
 
 name: commerce-platform
 
@@ -89,8 +91,6 @@ services:
       Authentication__MetadataAddress: "http://keycloak:8080/realms/commerce/.well-known/openid-configuration"
       ConnectionStrings__InventoryDb: "Host=inventory-db;Port=5432;Database=inventory;Username=inventory;Password=inventory"
       RabbitMq__Host: "rabbitmq"
-    ports:
-      - "8080:8080"
     depends_on:
       keycloak:
         condition: service_healthy
@@ -113,8 +113,6 @@ services:
       ConnectionStrings__OrdersDb: "Server=orders-db,1433;Database=orders;User Id=sa;Password=Your_password123;TrustServerCertificate=True;"
       Services__Inventory__BaseUrl: "http://inventory-api:8080"
       RabbitMq__Host: "rabbitmq"
-    ports:
-      - "8081:8080"
     depends_on:
       keycloak:
         condition: service_healthy
@@ -142,8 +140,6 @@ services:
       ConnectionStrings__NotificationsDb: "Host=notifications-db;Port=5432;Database=notifications;Username=postgres;Password=postgres"
       RabbitMq__Host: "rabbitmq"
       Smtp__Host: "mailpit"
-    ports:
-      - "8082:8080"
     depends_on:
       keycloak:
         condition: service_healthy

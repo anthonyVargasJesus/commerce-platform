@@ -28,6 +28,7 @@ public static class DependencyInjection
         services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<ICategoryRepository, CategoryRepository>();
         services.AddScoped<IProductTypeRepository, ProductTypeRepository>();
+        services.AddScoped<IIdempotencyStore, IdempotencyStore>();
 
         var rabbitHost = configuration["RabbitMq:Host"]
             ?? throw new InvalidOperationException("Configuration RabbitMq:Host was not found.");

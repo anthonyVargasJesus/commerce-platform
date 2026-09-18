@@ -57,6 +57,7 @@ Cada servicio es autónomo (su propia solución, base de datos, Dockerfile y CI)
 
 - **Síncrono (HTTP)**: Orders llama a Inventory cuando necesita una respuesta inmediata (¿existe el producto? ¿hay stock?), con reintentos y circuit breaker.
 - **Asíncrono (RabbitMQ + MassTransit)**: Orders e Inventory publican eventos (`OrderConfirmed`, `ProductLowStock`, ...) y Notifications los consume. Se usa un **outbox transaccional**: el evento se guarda en la misma transacción que el cambio y se entrega después, así no se pierde si el broker cae. El consumidor usa un **inbox** para descartar mensajes duplicados, y los envíos fallidos se reintentan y terminan en una cola `_error`.
+- **Reintentos seguros**: las llamadas entre servicios se reintentan ante fallos transitorios, y un reintento de un POST no debe repetir su efecto. Por eso Orders envía a Inventory una cabecera `Idempotency-Key` en cada ajuste de stock (una clave por operación e ítem, nueva en cada intento de confirmar o cancelar, igual en los reintentos de esa llamada); Inventory la guarda junto con el cambio (tabla `processed_requests`, clave única, misma transacción) y, si la vuelve a recibir, responde sin aplicarlo otra vez.
 - **Contratos**: los eventos se identifican por nombre completo (`Commerce.Contracts.*`); cada consumidor declara su propia copia, sin proyectos compartidos entre servicios.
 
 ## Ejecutar todo
@@ -141,6 +142,8 @@ GitHub Flow: `main` siempre desplegable y protegida (solo PR, con CI en verde). 
 
 **Keycloak** es el proveedor de identidad (realm `commerce`, importado desde `keycloak/commerce-realm.json`) y emite JWT. El **gateway** rechaza con 401 toda petición sin un token válido, y **cada servicio vuelve a validar el token** (no confían en que venga del gateway): comprueban firma, emisor, audiencia (`commerce-platform`) y expiración, y convierten los roles de Keycloak (`realm_access.roles`) en roles de ASP.NET. Los `/health/*` son públicos.
 
+El gateway también configura **CORS** (solo los orígenes de `Cors:AllowedOrigins`, por defecto los del desarrollo de un frontend: `localhost:3000`, `:4200`, `:5173`; el *preflight* del navegador se responde sin token) y un **límite de peticiones por usuario** (ventana deslizante, 600 por minuto por defecto, por el `sub` del token o por IP si no hay token; al superarlo responde `429` con `Retry-After`).
+
 | Rol | Quién | Puede |
 |---|---|---|
 | `admin` | `admin` / `admin` | Todo: catálogo, clientes, enviar/entregar órdenes, ver notificaciones |
@@ -167,6 +170,7 @@ curl -s -X POST http://localhost:8180/realms/commerce/protocol/openid-connect/to
 - Roles gruesos; en producción se usarían *scopes* más finos (`orders:read`, `orders:write`) y permisos por recurso.
 - El usuario se liga con su cliente por email; un identificador estable (un atributo de Keycloak con el id del cliente, sincronizado al crearlo) sería más robusto si los usuarios pudieran cambiar su email.
 - Keycloak corre en modo desarrollo (base embebida, HTTP); en producción llevaría su propia base de datos, HTTPS y alta disponibilidad. Los secretos del realm (`orders-service-dev-secret`) son de desarrollo: en producción vienen de un almacén de secretos.
-- El gateway no limita el número de peticiones ni protege contra abuso.
+- El límite de peticiones vive en la memoria de cada instancia del gateway: con varias instancias haría falta un almacén compartido (por ejemplo Redis), y detrás de un balanceador hay que configurar los encabezados reenviados para ver la IP real del cliente.
+- Las claves de idempotencia de Inventory (`processed_requests`) crecen sin límite: en producción llevarían una limpieza periódica de las claves antiguas.
 - Las bases de datos, RabbitMQ y las herramientas (Mailpit, dashboard) publican sus puertos en el compose para trabajar en local; en producción solo el gateway quedaría expuesto, y los secretos y contraseñas vendrían de un almacén de secretos.
 

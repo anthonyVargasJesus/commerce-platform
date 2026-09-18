@@ -46,9 +46,14 @@ public sealed class ApiUser
     // A client with no token at all.
     public static HttpClient Anonymous() => new() { BaseAddress = Endpoints.Gateway };
 
-    public Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, object? body = null)
+    public Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, object? body = null, IReadOnlyDictionary<string, string>? headers = null)
     {
         var request = new HttpRequestMessage(method, path);
+        foreach (var (name, value) in headers ?? new Dictionary<string, string>())
+        {
+            request.Headers.Add(name, value);
+        }
+
         if (body is not null)
         {
             request.Content = JsonContent.Create(body);

@@ -9,7 +9,7 @@ public interface IInventoryServiceClient
 {
     Task<ProductSnapshot?> GetProductAsync(Guid productId, CancellationToken cancellationToken);
 
-    Task<InventoryAdjustmentResult> AdjustStockAsync(Guid productId, int delta, CancellationToken cancellationToken);
+    Task<InventoryAdjustmentResult> AdjustStockAsync(Guid productId, int delta, string idempotencyKey, CancellationToken cancellationToken);
 }
 
 public sealed record ProductSnapshot(Guid Id, string Sku, string Name, decimal Price, bool IsActive);

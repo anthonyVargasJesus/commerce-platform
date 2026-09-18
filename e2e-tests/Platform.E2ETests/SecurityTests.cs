@@ -45,6 +45,21 @@ public class SecurityTests
     }
 
     [Fact]
+    public async Task ABrowserPreflightFromTheFrontendOrigin_IsAcceptedWithoutAToken()
+    {
+        using var anonymous = ApiUser.Anonymous();
+        using var preflight = new HttpRequestMessage(HttpMethod.Options, "/orders/api/v1/orders");
+        preflight.Headers.Add("Origin", "http://localhost:5173");
+        preflight.Headers.Add("Access-Control-Request-Method", "POST");
+        preflight.Headers.Add("Access-Control-Request-Headers", "authorization,content-type");
+
+        using var response = await anonymous.SendAsync(preflight);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        response.Headers.GetValues("Access-Control-Allow-Origin").ShouldBe(["http://localhost:5173"]);
+    }
+
+    [Fact]
     public async Task TheServicesAreOnlyReachableThroughTheGateway()
     {
         // The direct-access override deliberately publishes these ports; it is not what this test is about.

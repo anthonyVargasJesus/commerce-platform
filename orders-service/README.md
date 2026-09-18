@@ -44,6 +44,10 @@ Pending --Confirm--> Confirmed --Ship--> Shipped --Deliver--> Delivered
 
 El `HttpClient` hacia `inventory-service` usa `Microsoft.Extensions.Http.Resilience` (`AddStandardResilienceHandler()`), que aplica reintentos, circuit breaker y timeouts por defecto — si Inventory está caído momentáneamente, Orders no falla de una, reintenta con backoff.
 
+## Reintentos e idempotencia
+
+El cliente de Inventory reintenta ante fallos transitorios, también los POST de ajuste de stock. Cada llamada lleva una `Idempotency-Key` (`<intento>:<producto>:reserve|release|restock`): la misma en los reintentos de esa llamada, y distinta en cada intento de confirmar o cancelar la orden, para que una reserva repetida después de una compensación no se confunda con un reintento. Hay un test de integración que hace fallar a Inventory una vez y comprueba que el reintento lleva la misma clave.
+
 ## Seguridad
 
 La API exige un JWT de Keycloak (roles `admin`, `customer`, `service`; ver el README de la raíz). Un `customer` solo accede a **sus** órdenes: `OrderAccessPolicy` toma el email del token, busca el `Customer` con ese email y limita listados, consultas, confirmaciones y cancelaciones a ese cliente (`404` para las ajenas, `403` al crear una para otro); `admin` y `service` ven todo. Las llamadas a Inventory no reenvían el token del usuario: `ServiceTokenHandler` adjunta el token propio de `orders-service` (OAuth2 *client credentials*, configurado en `ServiceAuth`), que `ServiceTokenProvider` cachea hasta 30 s antes de que expire. El secreto de `appsettings.json` es solo de desarrollo.

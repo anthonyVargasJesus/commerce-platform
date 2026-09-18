@@ -12,6 +12,7 @@ public class NotificationRepository(NotificationsDbContext dbContext) : INotific
     public async Task<(IReadOnlyList<Notification> Items, int TotalCount)> GetPagedAsync(
         Guid? customerId,
         Guid? orderId,
+        Guid? productId,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken)
@@ -26,6 +27,11 @@ public class NotificationRepository(NotificationsDbContext dbContext) : INotific
         if (orderId is not null)
         {
             query = query.Where(n => n.OrderId == orderId);
+        }
+
+        if (productId is not null)
+        {
+            query = query.Where(n => n.ProductId == productId);
         }
 
         var ordered = query.OrderByDescending(n => n.CreatedAt);

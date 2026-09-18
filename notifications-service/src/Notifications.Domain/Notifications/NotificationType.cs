@@ -7,4 +7,5 @@ public enum NotificationType
     OrderShipped = 2,
     OrderDelivered = 3,
     OrderCancelled = 4,
+    LowStock = 5,
 }

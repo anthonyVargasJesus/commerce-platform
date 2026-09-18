@@ -37,4 +37,23 @@ public class NotificationTests
     {
         Should.Throw<DomainException>(() => Notification.Create(Guid.NewGuid(), Guid.NewGuid(), NotificationType.OrderCreated, " "));
     }
+
+    [Fact]
+    public void CreateStockAlert_WithValidData_ShouldCreateLowStockNotificationForTheProduct()
+    {
+        var productId = Guid.NewGuid();
+
+        var notification = Notification.CreateStockAlert(productId, "Low stock");
+
+        notification.Type.ShouldBe(NotificationType.LowStock);
+        notification.ProductId.ShouldBe(productId);
+        notification.OrderId.ShouldBeNull();
+        notification.CustomerId.ShouldBeNull();
+    }
+
+    [Fact]
+    public void CreateStockAlert_WithEmptyProductId_ShouldThrowDomainException()
+    {
+        Should.Throw<DomainException>(() => Notification.CreateStockAlert(Guid.Empty, "Low stock"));
+    }
 }

@@ -19,11 +19,12 @@ public class NotificationsController(ISender sender) : ControllerBase
     public async Task<ActionResult<PaginatedList<NotificationDto>>> GetList(
         [FromQuery] Guid? customerId,
         [FromQuery] Guid? orderId,
+        [FromQuery] Guid? productId,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20,
         CancellationToken cancellationToken = default)
     {
-        var result = await sender.Send(new GetNotificationsListQuery(customerId, orderId, pageNumber, pageSize), cancellationToken);
+        var result = await sender.Send(new GetNotificationsListQuery(customerId, orderId, productId, pageNumber, pageSize), cancellationToken);
         return Ok(result);
     }
 

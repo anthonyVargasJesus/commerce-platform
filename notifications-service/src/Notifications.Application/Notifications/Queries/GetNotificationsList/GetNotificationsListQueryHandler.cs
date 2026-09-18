@@ -13,6 +13,7 @@ public sealed class GetNotificationsListQueryHandler(INotificationRepository rep
         var (items, totalCount) = await repository.GetPagedAsync(
             request.CustomerId,
             request.OrderId,
+            request.ProductId,
             request.PageNumber,
             request.PageSize,
             cancellationToken);

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Commerce.Contracts.Inventory;
 using Commerce.Contracts.Orders;
 using MassTransit;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,14 +30,14 @@ public class OrderEventsConsumptionTests(NotificationsApiFactory factory) : ICla
         });
     }
 
-    private async Task<IReadOnlyList<NotificationDto>> WaitForNotificationsAsync(Guid orderId, int expectedCount)
+    private async Task<IReadOnlyList<NotificationDto>> WaitForNotificationsAsync(Guid id, int expectedCount, string filter = "orderId")
     {
         var deadline = DateTime.UtcNow.AddSeconds(30);
         IReadOnlyList<NotificationDto> items = [];
 
         while (DateTime.UtcNow < deadline)
         {
-            var page = await _client.GetFromJsonAsync<NotificationsPage>($"/api/v1/notifications?orderId={orderId}");
+            var page = await _client.GetFromJsonAsync<NotificationsPage>($"/api/v1/notifications?{filter}={id}");
             items = page!.Items;
             if (items.Count >= expectedCount)
             {
@@ -80,6 +81,22 @@ public class OrderEventsConsumptionTests(NotificationsApiFactory factory) : ICla
         var items = await WaitForNotificationsAsync(orderId, 1);
 
         items.ShouldHaveSingleItem().Type.ShouldBe(NotificationType.OrderShipped);
+    }
+
+    [Fact]
+    public async Task ProductLowStock_WhenPublished_ShouldCreateAStockAlertForTheProduct()
+    {
+        var productId = Guid.NewGuid();
+
+        await PublishAsync(new ProductLowStock(productId, "SKU-7", "Widget", 2, 5, DateTimeOffset.UtcNow));
+
+        var items = await WaitForNotificationsAsync(productId, 1, "productId");
+
+        var alert = items.ShouldHaveSingleItem();
+        alert.Type.ShouldBe(NotificationType.LowStock);
+        alert.OrderId.ShouldBeNull();
+        alert.CustomerId.ShouldBeNull();
+        alert.Message.ShouldContain("Widget");
     }
 
     [Fact]

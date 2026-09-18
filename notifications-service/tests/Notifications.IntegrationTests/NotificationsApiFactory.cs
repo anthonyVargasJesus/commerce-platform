@@ -1,3 +1,7 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -26,8 +30,23 @@ public class NotificationsApiFactory : WebApplicationFactory<Program>, IAsyncLif
 
     public string MailpitApiUrl => $"http://{_mailpitContainer.Hostname}:{_mailpitContainer.GetMappedPublicPort(8025)}";
 
+    public HttpClient CreateClientWithRoles(params string[] roles)
+    {
+        var client = CreateClient();
+        client.DefaultRequestHeaders.Authorization = TestTokens.Bearer(roles);
+        return client;
+    }
+
     protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
     {
+        builder.ConfigureTestServices(services =>
+            services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
+            {
+                // Real JWT validation (issuer, audience, expiry, role mapping) with a test signing key instead of Keycloak's.
+                options.ConfigurationManager = new StaticConfigurationManager<OpenIdConnectConfiguration>(new OpenIdConnectConfiguration());
+                options.TokenValidationParameters.IssuerSigningKey = TestTokens.SigningKey;
+            }));
+
         builder.ConfigureServices(services =>
         {
             using var scope = services.BuildServiceProvider().CreateScope();

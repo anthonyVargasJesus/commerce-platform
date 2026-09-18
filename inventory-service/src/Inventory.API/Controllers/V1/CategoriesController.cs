@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Asp.Versioning;
 using Inventory.Application.Categories.Commands.CreateCategory;
 using Inventory.Application.Categories.Commands.DeleteCategory;
@@ -10,6 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Inventory.API.Controllers.V1;
 
 [ApiController]
+[Authorize]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/categories")]
 public class CategoriesController(ISender sender) : ControllerBase
@@ -31,6 +33,7 @@ public class CategoriesController(ISender sender) : ControllerBase
         return Ok(result);
     }
 
+    [Authorize(Roles = "admin")]
     [HttpPost]
     [ProducesResponseType(typeof(CreatedCategoryDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -40,6 +43,7 @@ public class CategoriesController(ISender sender) : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = result.Id, version = "1.0" }, result);
     }
 
+    [Authorize(Roles = "admin")]
     [HttpPut("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -49,6 +53,7 @@ public class CategoriesController(ISender sender) : ControllerBase
         return NoContent();
     }
 
+    [Authorize(Roles = "admin")]
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

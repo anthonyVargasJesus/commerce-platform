@@ -10,14 +10,15 @@ using WireMock.ResponseBuilders;
 
 namespace Orders.IntegrationTests;
 
-public class OrdersControllerTests(OrdersApiFactory factory) : IClassFixture<OrdersApiFactory>
+[Collection(ApiCollection.Name)]
+public class OrdersControllerTests(OrdersApiFactory factory)
 {
-    private readonly HttpClient _client = factory.CreateClient();
+    private readonly HttpClient _client = factory.CreateClientWithRoles("admin");
 
     private void StubProduct(Guid productId, string sku, decimal price, bool isActive = true)
     {
         factory.InventoryServer
-            .Given(Request.Create().WithPath($"/api/v1/products/{productId}").UsingGet())
+            .Given(Request.Create().WithPath($"/api/v1/products/{productId}").WithHeader("Authorization", "Bearer service-token").UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
                 .WithBodyAsJson(new { id = productId, sku, name = "Widget", price, isActive }));
@@ -36,7 +37,7 @@ public class OrdersControllerTests(OrdersApiFactory factory) : IClassFixture<Ord
     private void StubAdjustStock(Guid productId, HttpStatusCode statusCode)
     {
         factory.InventoryServer
-            .Given(Request.Create().WithPath($"/api/v1/products/{productId}/adjust-stock").UsingPost())
+            .Given(Request.Create().WithPath($"/api/v1/products/{productId}/adjust-stock").WithHeader("Authorization", "Bearer service-token").UsingPost())
             .RespondWith(Response.Create().WithStatusCode((int)statusCode));
     }
 

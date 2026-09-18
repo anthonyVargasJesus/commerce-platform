@@ -43,6 +43,9 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       # The Aspire Dashboard is shared by the platform and started from orders-service/docker-compose.yml.
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://host.docker.internal:4317"
+      # Keycloak is defined in the root docker-compose.yml (docker compose up -d keycloak) and published on 8180.
+      Authentication__MetadataAddress: "http://host.docker.internal:8180/realms/commerce/.well-known/openid-configuration"
+      ServiceAuth__TokenEndpoint: "http://host.docker.internal:8180/realms/commerce/protocol/openid-connect/token"
       ConnectionStrings__OrdersDb: "Server=orders-db,1433;Database=orders;User Id=sa;Password=Your_password123;TrustServerCertificate=True;"
       Services__Inventory__BaseUrl: "http://host.docker.internal:5254"
       RabbitMq__Host: "rabbitmq"

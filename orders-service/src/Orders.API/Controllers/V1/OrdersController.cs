@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Asp.Versioning;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -14,6 +15,7 @@ using Orders.Application.Orders.Queries.GetOrdersList;
 namespace Orders.API.Controllers.V1;
 
 [ApiController]
+[Authorize]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/orders")]
 public class OrdersController(ISender sender) : ControllerBase
@@ -70,6 +72,7 @@ public class OrdersController(ISender sender) : ControllerBase
         return Ok(result);
     }
 
+    [Authorize(Roles = "admin")]
     [HttpPost("{id:guid}/ship")]
     [ProducesResponseType(typeof(OrderDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -80,6 +83,7 @@ public class OrdersController(ISender sender) : ControllerBase
         return Ok(result);
     }
 
+    [Authorize(Roles = "admin")]
     [HttpPost("{id:guid}/deliver")]
     [ProducesResponseType(typeof(OrderDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

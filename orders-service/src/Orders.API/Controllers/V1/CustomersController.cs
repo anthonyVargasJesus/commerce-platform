@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Asp.Versioning;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -10,6 +11,7 @@ using Orders.Application.Customers.Queries.GetCustomersList;
 namespace Orders.API.Controllers.V1;
 
 [ApiController]
+[Authorize(Roles = "admin")]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/customers")]
 public class CustomersController(ISender sender) : ControllerBase

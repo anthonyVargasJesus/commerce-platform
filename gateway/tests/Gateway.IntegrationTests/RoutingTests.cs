@@ -5,9 +5,10 @@ using WireMock.ResponseBuilders;
 
 namespace Gateway.IntegrationTests;
 
-public class RoutingTests(GatewayApiFactory factory) : IClassFixture<GatewayApiFactory>
+[Collection(ApiCollection.Name)]
+public class RoutingTests(GatewayApiFactory factory)
 {
-    private readonly HttpClient _client = factory.CreateClient();
+    private readonly HttpClient _client = factory.CreateClientWithRoles("admin");
 
     [Theory]
     [InlineData("/inventory/api/v1/products", "/api/v1/products")]

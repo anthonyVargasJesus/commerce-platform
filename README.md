@@ -82,19 +82,26 @@ Las APIs corren en `Development`, así que aplican sus migraciones al arrancar e
 
 ### Probar el flujo completo
 
+Toda petición entra por el gateway con un token de Keycloak. `admin` administra el catálogo y los clientes; `maria` (rol `customer`) hace órdenes.
+
 ```bash
-# 1. Un producto de Inventory y un cliente en Orders
-PRODUCT=$(curl -s "http://localhost:8080/api/v1/products?pageSize=1" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
-CUSTOMER=$(curl -s -X POST http://localhost:8081/api/v1/customers -H "Content-Type: application/json" \
-  -d '{"name":"Maria Lopez","email":"maria@example.com"}' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+KC=http://localhost:8180/realms/commerce/protocol/openid-connect/token
+token() { curl -s -X POST $KC -d grant_type=password -d client_id=commerce-web -d username=$1 -d password=$2 | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4; }
+ADMIN=$(token admin admin); MARIA=$(token maria maria)
+G=http://localhost:8000
 
-# 2. Crear y confirmar una orden (Orders descuenta el stock en Inventory)
-ORDER=$(curl -s -X POST http://localhost:8081/api/v1/orders -H "Content-Type: application/json" \
-  -d "{\"customerId\":\"$CUSTOMER\",\"items\":[{\"productId\":\"$PRODUCT\",\"quantity\":1}]}" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
-curl -X POST http://localhost:8081/api/v1/orders/$ORDER/confirm
+# 1. Un producto de Inventory y un cliente en Orders (el cliente lo crea el admin)
+PRODUCT=$(curl -s -H "Authorization: Bearer $MARIA" "$G/inventory/api/v1/products?pageSize=1" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+CUSTOMER=$(curl -s -X POST -H "Authorization: Bearer $ADMIN" -H "Content-Type: application/json" \
+  -d '{"name":"Maria Lopez","email":"maria@example.com"}' $G/orders/api/v1/customers | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 
-# 3. Ver el resultado: correos en http://localhost:8025 y notificaciones guardadas
-curl "http://localhost:8082/api/v1/notifications?orderId=$ORDER"
+# 2. Maria crea y confirma su orden (Orders descuenta el stock en Inventory con su cuenta de servicio)
+ORDER=$(curl -s -X POST -H "Authorization: Bearer $MARIA" -H "Content-Type: application/json" \
+  -d "{\"customerId\":\"$CUSTOMER\",\"items\":[{\"productId\":\"$PRODUCT\",\"quantity\":1}]}" $G/orders/api/v1/orders | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+curl -X POST -H "Authorization: Bearer $MARIA" $G/orders/api/v1/orders/$ORDER/confirm
+
+# 3. Ver el resultado: correos en http://localhost:8025 y notificaciones guardadas (solo admin)
+curl -H "Authorization: Bearer $ADMIN" "$G/notifications/api/v1/notifications?orderId=$ORDER"
 ```
 
 Si el stock del producto baja de su nivel de reorden, Inventory publica `ProductLowStock` y llega una alerta al correo de operaciones.
@@ -129,13 +136,36 @@ GitHub Flow: `main` siempre desplegable y protegida (solo PR, con CI en verde). 
 - **Compensación síncrona** al confirmar/cancelar órdenes (sin saga): simplificación consciente, documentada en el README de Orders.
 - Las imágenes Alpine corren en globalización invariante: el código nunca pide una cultura concreta y las imágenes que usan SQL Server instalan ICU.
 
-## Seguridad (en construcción)
+## Seguridad
 
-El gateway enruta y **Keycloak** ya está listo con el realm `commerce` (se importa desde `keycloak/commerce-realm.json`): los usuarios `admin` / `admin` (rol `admin`) y `maria` / `maria` (rol `customer`), y el cliente `orders-service` para las llamadas entre servicios (rol `service`). Un token se pide así:
+**Keycloak** es el proveedor de identidad (realm `commerce`, importado desde `keycloak/commerce-realm.json`) y emite JWT. El **gateway** rechaza con 401 toda petición sin un token válido, y **cada servicio vuelve a validar el token** (no confían en que venga del gateway): comprueban firma, emisor, audiencia (`commerce-platform`) y expiración, y convierten los roles de Keycloak (`realm_access.roles`) en roles de ASP.NET. Los `/health/*` son públicos.
+
+| Rol | Quién | Puede |
+|---|---|---|
+| `admin` | `admin` / `admin` | Todo: catálogo, clientes, enviar/entregar órdenes, ver notificaciones |
+| `customer` | `maria` / `maria` | Leer el catálogo, crear/ver/confirmar/cancelar órdenes |
+| `service` | cliente `orders-service` | Ajustar stock en Inventory (lo usa Orders) |
+
+| Servicio | Lectura | Escritura |
+|---|---|---|
+| inventory | cualquier usuario autenticado | `admin`; ajustar stock también `service` |
+| orders | cualquier usuario autenticado | crear/confirmar/cancelar: autenticado; enviar/entregar: `admin`; clientes: solo `admin` |
+| notifications | solo `admin` | - |
+
+**Comunicación entre servicios**: Orders no reenvía el token del usuario a Inventory; usa su propia identidad (`orders-service`, OAuth2 *client credentials*) y cachea el token hasta poco antes de que expire. Así un `customer` puede confirmar su orden sin tener permiso de ajustar stock directamente.
+
+Un token se pide así (también sirve para probar en Swagger o Postman):
 
 ```bash
 curl -s -X POST http://localhost:8180/realms/commerce/protocol/openid-connect/token \
   -d grant_type=password -d client_id=commerce-web -d username=maria -d password=maria
 ```
 
-Todavía **no se exige el token**: falta que el gateway y los tres servicios validen el JWT y apliquen los roles, y que Orders use su propia cuenta de servicio para hablar con Inventory. Ese es el siguiente trabajo.
+### Simplificaciones conscientes (frente a un entorno de producción)
+
+- Roles gruesos; en producción se usarían *scopes* más finos (`orders:read`, `orders:write`) y permisos por recurso.
+- Un `customer` puede crear/ver órdenes de cualquier cliente: falta ligar el usuario de Keycloak con el `Customer` de Orders para que solo vea las suyas.
+- Keycloak corre en modo desarrollo (base embebida, HTTP); en producción llevaría su propia base de datos, HTTPS y alta disponibilidad. Los secretos del realm (`orders-service-dev-secret`) son de desarrollo: en producción vienen de un almacén de secretos.
+- El gateway no limita el número de peticiones ni protege contra abuso.
+- Los servicios siguen publicando sus puertos en Docker (con o sin gateway ya exigen token); cerrarlos queda como siguiente paso.
+

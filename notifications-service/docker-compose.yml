@@ -29,6 +29,8 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       # The Aspire Dashboard is shared by the platform and started from orders-service/docker-compose.yml.
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://host.docker.internal:4317"
+      # Keycloak is defined in the root docker-compose.yml (docker compose up -d keycloak) and published on 8180.
+      Authentication__MetadataAddress: "http://host.docker.internal:8180/realms/commerce/.well-known/openid-configuration"
       ConnectionStrings__NotificationsDb: "Host=notifications-db;Port=5432;Database=notifications;Username=postgres;Password=postgres"
       # RabbitMQ is shared by the whole platform and is started from orders-service/docker-compose.yml.
       RabbitMq__Host: "host.docker.internal"

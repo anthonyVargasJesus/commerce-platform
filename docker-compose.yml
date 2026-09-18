@@ -86,11 +86,14 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire-dashboard:18889"
+      Authentication__MetadataAddress: "http://keycloak:8080/realms/commerce/.well-known/openid-configuration"
       ConnectionStrings__InventoryDb: "Host=inventory-db;Port=5432;Database=inventory;Username=inventory;Password=inventory"
       RabbitMq__Host: "rabbitmq"
     ports:
       - "8080:8080"
     depends_on:
+      keycloak:
+        condition: service_healthy
       inventory-db:
         condition: service_healthy
       rabbitmq:
@@ -103,12 +106,18 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire-dashboard:18889"
+      ServiceAuth__TokenEndpoint: "http://keycloak:8080/realms/commerce/protocol/openid-connect/token"
+      ServiceAuth__ClientId: "orders-service"
+      ServiceAuth__ClientSecret: "orders-service-dev-secret"
+      Authentication__MetadataAddress: "http://keycloak:8080/realms/commerce/.well-known/openid-configuration"
       ConnectionStrings__OrdersDb: "Server=orders-db,1433;Database=orders;User Id=sa;Password=Your_password123;TrustServerCertificate=True;"
       Services__Inventory__BaseUrl: "http://inventory-api:8080"
       RabbitMq__Host: "rabbitmq"
     ports:
       - "8081:8080"
     depends_on:
+      keycloak:
+        condition: service_healthy
       orders-db:
         condition: service_healthy
       rabbitmq:
@@ -129,12 +138,15 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire-dashboard:18889"
+      Authentication__MetadataAddress: "http://keycloak:8080/realms/commerce/.well-known/openid-configuration"
       ConnectionStrings__NotificationsDb: "Host=notifications-db;Port=5432;Database=notifications;Username=postgres;Password=postgres"
       RabbitMq__Host: "rabbitmq"
       Smtp__Host: "mailpit"
     ports:
       - "8082:8080"
     depends_on:
+      keycloak:
+        condition: service_healthy
       notifications-db:
         condition: service_healthy
       mailpit:
@@ -170,12 +182,15 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire-dashboard:18889"
+      Authentication__MetadataAddress: "http://keycloak:8080/realms/commerce/.well-known/openid-configuration"
       ReverseProxy__Clusters__inventory__Destinations__primary__Address: "http://inventory-api:8080/"
       ReverseProxy__Clusters__orders__Destinations__primary__Address: "http://orders-api:8080/"
       ReverseProxy__Clusters__notifications__Destinations__primary__Address: "http://notifications-api:8080/"
     ports:
       - "8000:8080"
     depends_on:
+      keycloak:
+        condition: service_healthy
       inventory-api:
         condition: service_started
       orders-api:
